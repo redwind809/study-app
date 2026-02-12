@@ -4206,12 +4206,8 @@
             const today = getToday();
             const days = [];
 
-            // Y軸データの生成 (過去N日) - 上が新しい日付、下が古い日付にするか、逆にするか
-            // バーティカル手帳などは上が古く、下が新しいことが多いが、
-            // 直近をみたいので、リストの上（Y=0付近）を今日、下を過去にする形式で実装してみる
-            // または、グラフとしてはX軸＝時間、Y軸＝日付とする
-
-            for (let i = 0; i < sleepChartRange; i++) {
+            // X軸: 日付 (左が過去、右が今日)
+            for (let i = sleepChartRange - 1; i >= 0; i--) {
                 const d = new Date(today);
                 d.setDate(d.getDate() - i);
                 days.push(formatDate(d));
@@ -4220,30 +4216,32 @@
             // 描画サイズ定数
             const width = svg.clientWidth || 300;
             const height = svg.clientHeight || 150;
-            // 右側に余白（日付ラベル用）、上部に時間ラベル用
-            const padding = { top: 20, right: 30, bottom: 10, left: 10 };
+            // 左側に時間ラベル、下部に日付ラベル
+            const padding = { top: 10, right: 10, bottom: 20, left: 30 };
             const chartW = width - padding.left - padding.right;
             const chartH = height - padding.top - padding.bottom;
 
-            // X軸スケール: 04:00 (240min) ～ 28:00 (1680min)
+            // Y軸スケール: 04:00 (240min) ～ 28:00 (1680min)
+            // 上が04:00、下が28:00
             const minMin = 240;
             const maxMin = 1680;
             const rangeMin = 1440;
 
-            const getX = (timeStr, isBed) => {
+            const getY = (timeStr, isBed) => {
                 if (!timeStr) return null;
                 const min = timeToMinutes(timeStr, isBed);
                 if (min < minMin || min > maxMin) return null;
                 const percent = (min - minMin) / rangeMin;
-                return padding.left + (percent * chartW);
+                return padding.top + (percent * chartH);
             };
 
-            // Y軸: 配列のindex 0 (今日) が一番上
-            const getY = (idx) => {
-                return padding.top + (idx / (days.length - 1)) * chartH;
+            const getX = (idx) => {
+                // 各カラムの中央を返す
+                const colWidth = chartW / days.length;
+                return padding.left + (idx * colWidth) + (colWidth / 2);
             };
 
-            // ガイドライン（時間縦線）を描画
+            // ガイドライン（時間横線）を描画
             const guides = [
                 { min: 360, label: '06' },
                 { min: 720, label: '12' },
@@ -4252,14 +4250,14 @@
             ];
 
             guides.forEach(g => {
-                const x = padding.left + ((g.min - minMin) / rangeMin) * chartW;
+                const y = padding.top + ((g.min - minMin) / rangeMin) * chartH;
 
                 // line
                 const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-                line.setAttribute("x1", x);
-                line.setAttribute("y1", padding.top);
-                line.setAttribute("x2", x);
-                line.setAttribute("y2", height - padding.bottom);
+                line.setAttribute("x1", padding.left);
+                line.setAttribute("y1", y);
+                line.setAttribute("x2", width - padding.right);
+                line.setAttribute("y2", y);
                 line.setAttribute("stroke", "#334155");
                 line.setAttribute("stroke-width", "1");
                 line.setAttribute("stroke-dasharray", "4 4");
@@ -4267,9 +4265,9 @@
 
                 // label
                 const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
-                txt.setAttribute("x", x);
-                txt.setAttribute("y", padding.top - 5);
-                txt.setAttribute("text-anchor", "middle");
+                txt.setAttribute("x", padding.left - 5);
+                txt.setAttribute("y", y + 3);
+                txt.setAttribute("text-anchor", "end");
                 txt.setAttribute("fill", "#64748b");
                 txt.setAttribute("font-size", "9");
                 txt.textContent = g.label;
@@ -4277,28 +4275,20 @@
             });
 
             // データプロット
+            const colWidth = chartW / days.length;
+            const barWidth = Math.max(2, colWidth * 0.6);
 
             days.forEach((dStr, idx) => {
-                const y = getY(idx);
+                const xCenter = getX(idx);
                 const log = (appData.sleepLog && appData.sleepLog[dStr]);
 
-                // 日付の横線 (薄く)
-                const hLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
-                hLine.setAttribute("x1", padding.left);
-                hLine.setAttribute("y1", y);
-                hLine.setAttribute("x2", width - padding.right);
-                hLine.setAttribute("y2", y);
-                hLine.setAttribute("stroke", "#1e293b");
-                hLine.setAttribute("stroke-width", "1");
-                svg.insertBefore(hLine, svg.firstChild);
-
-                // 日付ラベル (右端)
+                // 日付ラベル (下部)
                 if (sleepChartRange <= 14 || idx % 5 === 0) {
                     const dObj = new Date(dStr);
                     const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
-                    txt.setAttribute("x", width - 5);
-                    txt.setAttribute("y", y + 3);
-                    txt.setAttribute("text-anchor", "end");
+                    txt.setAttribute("x", xCenter);
+                    txt.setAttribute("y", height - 5);
+                    txt.setAttribute("text-anchor", "middle");
                     txt.setAttribute("fill", "#94a3b8");
                     txt.setAttribute("font-size", "9");
                     txt.textContent = `${dObj.getMonth() + 1}/${dObj.getDate()}`;
@@ -4306,28 +4296,27 @@
                 }
 
                 if (log) {
-                    const xWake = getX(log.wake, false);
-                    const xBed = getX(log.bed, true);
-                    const barHeight = chartH / (days.length) * 0.6; // 行間の60%の太さ
+                    const yWake = getY(log.wake, false);
+                    const yBed = getY(log.bed, true);
 
                     // 期間塗りつぶし (起床～就寝 = 起きている時間)
-                    if (xWake !== null && xBed !== null && xBed > xWake) {
+                    if (yWake !== null && yBed !== null && yBed > yWake) {
                         const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-                        rect.setAttribute("x", xWake);
-                        rect.setAttribute("y", y - barHeight / 2);
-                        rect.setAttribute("width", xBed - xWake);
-                        rect.setAttribute("height", barHeight);
-                        rect.setAttribute("rx", "3");
-                        rect.setAttribute("fill", "rgba(56, 189, 248, 0.4)"); // sky-400 with opacity
+                        rect.setAttribute("x", xCenter - barWidth / 2);
+                        rect.setAttribute("y", yWake);
+                        rect.setAttribute("width", barWidth);
+                        rect.setAttribute("height", yBed - yWake);
+                        rect.setAttribute("rx", "2");
+                        rect.setAttribute("fill", "rgba(56, 189, 248, 0.4)");
                         rect.setAttribute("stroke", "#38bdf8");
                         rect.setAttribute("stroke-width", "1");
                         svg.appendChild(rect);
                     }
 
                     // ポイント描画
-                    const drawPoint = (x, color) => {
+                    const drawPoint = (y, color) => {
                         const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-                        circle.setAttribute("cx", x);
+                        circle.setAttribute("cx", xCenter);
                         circle.setAttribute("cy", y);
                         circle.setAttribute("r", "3");
                         circle.setAttribute("fill", color);
@@ -4336,8 +4325,8 @@
                         svg.appendChild(circle);
                     };
 
-                    if (xWake !== null) drawPoint(xWake, "#facc15"); // 黄色
-                    if (xBed !== null) drawPoint(xBed, "#c084fc");   // 紫色
+                    if (yWake !== null) drawPoint(yWake, "#facc15"); // 黄色
+                    if (yBed !== null) drawPoint(yBed, "#c084fc");   // 紫色
                 }
             });
         }
