@@ -4206,55 +4206,60 @@
             const today = getToday();
             const days = [];
 
-            // X軸データの生成 (過去N日)
-            for (let i = sleepChartRange - 1; i >= 0; i--) {
+            // Y軸データの生成 (過去N日) - 上が新しい日付、下が古い日付にするか、逆にするか
+            // バーティカル手帳などは上が古く、下が新しいことが多いが、
+            // 直近をみたいので、リストの上（Y=0付近）を今日、下を過去にする形式で実装してみる
+            // または、グラフとしてはX軸＝時間、Y軸＝日付とする
+
+            for (let i = 0; i < sleepChartRange; i++) {
                 const d = new Date(today);
                 d.setDate(d.getDate() - i);
                 days.push(formatDate(d));
             }
 
             // 描画サイズ定数
-            const width = svg.clientWidth || 300; // fallback
+            const width = svg.clientWidth || 300;
             const height = svg.clientHeight || 150;
-            const padding = { top: 10, right: 10, bottom: 20, left: 30 };
+            // 右側に余白（日付ラベル用）、上部に時間ラベル用
+            const padding = { top: 20, right: 30, bottom: 10, left: 10 };
             const chartW = width - padding.left - padding.right;
             const chartH = height - padding.top - padding.bottom;
 
-            // Y軸スケール: 04:00 (240min) ～ 28:00 (1680min)
-            // min = 240, max = 1680. range = 1440.
+            // X軸スケール: 04:00 (240min) ～ 28:00 (1680min)
             const minMin = 240;
             const maxMin = 1680;
             const rangeMin = 1440;
 
-            const getY = (timeStr, isBed) => {
+            const getX = (timeStr, isBed) => {
                 if (!timeStr) return null;
                 const min = timeToMinutes(timeStr, isBed);
-                if (min < minMin || min > maxMin) return null; // 範囲外
+                if (min < minMin || min > maxMin) return null;
                 const percent = (min - minMin) / rangeMin;
-                return padding.top + (percent * chartH);
+                return padding.left + (percent * chartW);
             };
 
-            const getX = (idx) => {
-                return padding.left + (idx / (days.length - 1)) * chartW;
+            // Y軸: 配列のindex 0 (今日) が一番上
+            const getY = (idx) => {
+                return padding.top + (idx / (days.length - 1)) * chartH;
             };
 
-            // ガイドラインを描画 (06:00, 12:00, 18:00, 24:00)
+            // ガイドライン（時間縦線）を描画
             const guides = [
-                { min: 360, label: '06:00' },
-                { min: 720, label: '12:00' },
-                { min: 1080, label: '18:00' },
-                { min: 1440, label: '00:00' }
+                { min: 360, label: '06' },
+                { min: 720, label: '12' },
+                { min: 1080, label: '18' },
+                { min: 1440, label: '24' }
             ];
 
             guides.forEach(g => {
-                const y = padding.top + ((g.min - minMin) / rangeMin) * chartH;
+                const x = padding.left + ((g.min - minMin) / rangeMin) * chartW;
 
                 // line
                 const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-                line.setAttribute("x1", padding.left);
-                line.setAttribute("y1", y);
-                line.setAttribute("x2", width - padding.right);
-                line.setAttribute("y2", y);
+                line.setAttribute("x1", x);
+                line.setAttribute("y1", padding.top);
+                line.setAttribute("x2", x);
+                line.setAttribute("y2", height - padding.bottom);
                 line.setAttribute("stroke", "#334155");
                 line.setAttribute("stroke-width", "1");
                 line.setAttribute("stroke-dasharray", "4 4");
@@ -4262,53 +4267,54 @@
 
                 // label
                 const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
-                txt.setAttribute("x", padding.left - 5);
-                txt.setAttribute("y", y + 3);
-                txt.setAttribute("text-anchor", "end");
+                txt.setAttribute("x", x);
+                txt.setAttribute("y", padding.top - 5);
+                txt.setAttribute("text-anchor", "middle");
                 txt.setAttribute("fill", "#64748b");
                 txt.setAttribute("font-size", "9");
                 txt.textContent = g.label;
                 svg.appendChild(txt);
             });
 
-            // データプロット
+            // 日付グリッド（横線）とデータプロット
             const wakePoints = [];
             const bedPoints = [];
 
             days.forEach((dStr, idx) => {
+                const y = getY(idx);
                 const log = (appData.sleepLog && appData.sleepLog[dStr]);
-                const x = getX(idx);
 
-                if (log) {
-                    const yWake = getY(log.wake, false);
-                    const yBed = getY(log.bed, true);
+                // 日付の横線
+                const hLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                hLine.setAttribute("x1", padding.left);
+                hLine.setAttribute("y1", y);
+                hLine.setAttribute("x2", width - padding.right);
+                hLine.setAttribute("y2", y);
+                hLine.setAttribute("stroke", "#1e293b");
+                hLine.setAttribute("stroke-width", "1");
+                svg.insertBefore(hLine, svg.firstChild);
 
-                    if (yWake !== null) wakePoints.push({ x, y: yWake });
-                    if (yBed !== null) bedPoints.push({ x, y: yBed });
+                // 日付ラベル (右端)
+                // 間引き
+                if (sleepChartRange <= 14 || idx % 5 === 0) {
+                    const dObj = new Date(dStr);
+                    const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                    txt.setAttribute("x", width - 5);
+                    txt.setAttribute("y", y + 3);
+                    txt.setAttribute("text-anchor", "end");
+                    txt.setAttribute("fill", "#94a3b8");
+                    txt.setAttribute("font-size", "9");
+                    txt.textContent = `${dObj.getMonth() + 1}/${dObj.getDate()}`;
+                    svg.appendChild(txt);
                 }
 
-                // X軸ラベル (間引き)
-                if (sleepChartRange > 14 && idx % 5 !== 0) return;
+                if (log) {
+                    const xWake = getX(log.wake, false);
+                    const xBed = getX(log.bed, true);
 
-                const dObj = new Date(dStr);
-                const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
-                txt.setAttribute("x", x);
-                txt.setAttribute("y", height - 5);
-                txt.setAttribute("text-anchor", "middle");
-                txt.setAttribute("fill", "#94a3b8");
-                txt.setAttribute("font-size", "9");
-                txt.textContent = `${dObj.getMonth() + 1}/${dObj.getDate()}`;
-                svg.appendChild(txt);
-
-                // 縦グリッド
-                const vLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
-                vLine.setAttribute("x1", x);
-                vLine.setAttribute("y1", padding.top);
-                vLine.setAttribute("x2", x);
-                vLine.setAttribute("y2", height - padding.bottom);
-                vLine.setAttribute("stroke", "#1e293b");
-                vLine.setAttribute("stroke-width", "1");
-                svg.insertBefore(vLine, svg.firstChild);
+                    if (xWake !== null) wakePoints.push({ x: xWake, y: y });
+                    if (xBed !== null) bedPoints.push({ x: xBed, y: y });
+                }
             });
 
             // 折れ線を描画する関数
