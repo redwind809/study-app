@@ -632,7 +632,7 @@
             margin-right: 6px;
             white-space: nowrap;
             font-weight: bold;
-            border: 1px solid currentColor;
+            /* border: 1px solid currentColor; */
             opacity: 0.8;
         }
     </style>
@@ -1387,7 +1387,8 @@
                     </button>
                     <h4
                         class="text-xs text-app-success mb-2 font-bold uppercase tracking-wider flex items-center gap-1">
-                        <i class="fas fa-check-circle"></i> 完了実績</h4>
+                        <i class="fas fa-check-circle"></i> 完了実績
+                    </h4>
                     <div id="modal-completed-list"
                         class="bg-gray-900/50 rounded border border-gray-700 mb-4 p-2 text-sm text-gray-400 min-h-[40px]">
                     </div>
@@ -2813,8 +2814,8 @@
                     // --- 日付数字のデザイン ---
                     const daySpan = document.createElement('span');
                     daySpan.className = `text-sm font-bold w-6 h-6 flex items-center justify-center rounded-full mb-1 z-10 ${isToday
-                            ? 'bg-app-accent text-app-dark shadow-lg ring-2 ring-app-accent/30'
-                            : 'text-gray-300 group-hover:bg-gray-700'
+                        ? 'bg-app-accent text-app-dark shadow-lg ring-2 ring-app-accent/30'
+                        : 'text-gray-300 group-hover:bg-gray-700'
                         }`;
                     daySpan.textContent = dayNum;
                     cell.appendChild(daySpan);
