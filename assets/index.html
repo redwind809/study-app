@@ -3054,11 +3054,18 @@
             }
 
             // 画面ごとの描画更新
-            if (targetId === 'challenge-screen') renderChallengeScreen();
-            if (targetId === 'manage-screen') renderManageScreen();
+            if (targetId === 'challenge-screen') {
+                renderChallengeScreen();
+                loadSleepLogDate();
+                // 少し遅延させて描画することで、display:block反映後のサイズを取得させる
+                setTimeout(renderSleepChart, 50);
+            }
+            if (targetId === 'manage-screen') {
+                renderManageScreen();
+                renderTickerSettings();
+            }
             if (targetId === 'record-screen') renderRecordLists();
             if (targetId === 'home-screen') updateUI(); // ホームに戻った時も更新
-            if (targetId === 'manage-screen') renderTickerSettings(); // 管理画面を開いたら設定描画
         }
 
         // ★修正版：総合モードでも全科目のリストを表示して編集できるようにする
