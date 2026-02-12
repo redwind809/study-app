@@ -4298,18 +4298,41 @@
                 if (log) {
                     const yWake = getY(log.wake, false);
                     const yBed = getY(log.bed, true);
+                    const chartTop = padding.top;
+                    const chartBottom = height - padding.bottom;
 
-                    // 期間塗りつぶし (起床～就寝 = 起きている時間)
-                    if (yWake !== null && yBed !== null && yBed > yWake) {
+                    // 睡眠時間を塗りつぶし (グラフの上端〜起床、就寝〜グラフの下端)
+                    // 色: スリープカラー (例: 紫系の半透明)
+                    const sleepColor = "rgba(139, 92, 246, 0.3)"; // violet-500 opacity
+                    const sleepStroke = "none";
+
+                    // 1. 朝の睡眠 (04:00 -> 起床)
+                    if (yWake !== null) {
                         const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
                         rect.setAttribute("x", xCenter - barWidth / 2);
-                        rect.setAttribute("y", yWake);
+                        rect.setAttribute("y", chartTop);
                         rect.setAttribute("width", barWidth);
-                        rect.setAttribute("height", yBed - yWake);
-                        rect.setAttribute("rx", "2");
-                        rect.setAttribute("fill", "rgba(56, 189, 248, 0.4)");
-                        rect.setAttribute("stroke", "#38bdf8");
-                        rect.setAttribute("stroke-width", "1");
+                        // yWakeがchartTopより小さい(=4時前)の場合は描画しない、または0にする
+                        const h = Math.max(0, yWake - chartTop);
+                        rect.setAttribute("height", h);
+                        rect.setAttribute("rx", "1");
+                        rect.setAttribute("fill", sleepColor);
+                        rect.setAttribute("stroke", sleepStroke);
+                        svg.appendChild(rect);
+                    }
+
+                    // 2. 夜の睡眠 (就寝 -> 28:00)
+                    if (yBed !== null) {
+                        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                        rect.setAttribute("x", xCenter - barWidth / 2);
+                        rect.setAttribute("y", yBed);
+                        rect.setAttribute("width", barWidth);
+                        // chartBottomより大きい(=28時過ぎ)の場合は描画しない
+                        const h = Math.max(0, chartBottom - yBed);
+                        rect.setAttribute("height", h);
+                        rect.setAttribute("rx", "1");
+                        rect.setAttribute("fill", sleepColor);
+                        rect.setAttribute("stroke", sleepStroke);
                         svg.appendChild(rect);
                     }
 
