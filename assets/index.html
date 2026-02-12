@@ -896,6 +896,60 @@
                 <div id="challenge-stats-grid" class="grid grid-cols-2 gap-3">
                 </div>
             </div>
+
+            <!-- 生活リズム表 -->
+            <div class="mt-8 pt-6 border-t border-gray-700">
+                <h3 class="text-sm font-bold text-gray-300 mb-4 flex items-center gap-2">
+                    <i class="fas fa-bed text-purple-400"></i> 生活リズム
+                </h3>
+
+                <!-- 入力エリア -->
+                <div class="bg-gray-800/50 rounded-lg p-3 mb-4 border border-gray-700">
+                    <div class="flex items-center justify-between mb-2">
+                        <input type="date" id="sleep-log-date"
+                            class="bg-gray-900 border border-gray-700 text-white text-xs rounded px-2 py-1 outline-none"
+                            onchange="loadSleepLogDate()">
+                        <button onclick="saveSleepLog()"
+                            class="bg-app-accent text-app-dark text-xs font-bold px-3 py-1 rounded hover:bg-sky-300">記録</button>
+                    </div>
+                    <div class="flex gap-4">
+                        <div class="flex-1">
+                            <label class="text-[10px] text-gray-500 block mb-1">起床</label>
+                            <input type="time" id="sleep-log-wake"
+                                class="w-full bg-gray-900 border-b border-gray-600 text-white text-lg font-mono focus:border-app-accent outline-none">
+                        </div>
+                        <div class="flex-1">
+                            <label class="text-[10px] text-gray-500 block mb-1">就寝 (深夜は28時まで対応)</label>
+                            <input type="time" id="sleep-log-bed"
+                                class="w-full bg-gray-900 border-b border-gray-600 text-white text-lg font-mono focus:border-app-accent outline-none">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- グラフエリア -->
+                <div class="bg-app-panel rounded-lg border border-gray-700 p-2">
+                    <div class="flex justify-end gap-2 mb-2">
+                        <button onclick="changeSleepChartRange(7)"
+                            class="chart-range-btn text-[10px] px-2 py-0.5 rounded bg-gray-700 text-white transition-colors"
+                            data-range="7">1週</button>
+                        <button onclick="changeSleepChartRange(14)"
+                            class="chart-range-btn text-[10px] px-2 py-0.5 rounded text-gray-400 hover:bg-gray-800 transition-colors"
+                            data-range="14">2週</button>
+                        <button onclick="changeSleepChartRange(30)"
+                            class="chart-range-btn text-[10px] px-2 py-0.5 rounded text-gray-400 hover:bg-gray-800 transition-colors"
+                            data-range="30">1ヶ月</button>
+                    </div>
+                    <div class="relative w-full h-48 bg-gray-900/50 rounded overflow-hidden" id="sleep-chart-container">
+                        <svg id="sleep-chart-svg" width="100%" height="100%" class="w-full h-full block"></svg>
+                    </div>
+                    <div class="flex justify-center gap-4 mt-2 text-[10px]">
+                        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-purple-400"></span>
+                            就寝</span>
+                        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-yellow-400"></span>
+                            起床</span>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div id="manage-screen" class="tab-content p-4 pb-32">
@@ -1161,6 +1215,23 @@
                                 <label class="text-[10px] text-gray-500 block mb-1">目標日</label>
                                 <input type="date" id="edit-challenge-end"
                                     class="w-full bg-gray-900 border border-gray-700 text-white text-xs rounded px-2 py-2 focus:border-app-accent outline-none">
+                            </div>
+                        </div>
+
+                        <div class="pt-2 border-t border-gray-700 mt-2">
+                            <label class="text-[10px] text-gray-500 block mb-1">自動チェック連携 (生活リズム)</label>
+                            <div class="flex gap-2 mb-2">
+                                <select id="edit-challenge-auto-type" onchange="toggleAutoTimeInput()"
+                                    class="bg-gray-900 border border-gray-700 text-white text-xs rounded px-2 py-2 flex-1 outline-none">
+                                    <option value="">連携なし</option>
+                                    <option value="waketime">起床時間 (これより早いと達成)</option>
+                                    <option value="bedtime">就寝時間 (これより早いと達成)</option>
+                                </select>
+                            </div>
+                            <div id="auto-time-input-area" class="hidden">
+                                <label class="text-[10px] text-gray-500 block mb-1">目標時間</label>
+                                <input type="time" id="edit-challenge-target-time"
+                                    class="w-full bg-gray-900 border border-gray-700 text-white text-xs rounded px-2 py-2 outline-none">
                             </div>
                         </div>
 
@@ -1527,7 +1598,7 @@
             isEnabled: true
         };
 
-        const getBlankData = () => ({ currentSubjectId: 'chemistry', subjects: JSON.parse(JSON.stringify(defaultSubjects)), schedules: {}, debugDate: null, ticker: JSON.parse(JSON.stringify(defaultTicker)) });
+        const getBlankData = () => ({ currentSubjectId: 'chemistry', subjects: JSON.parse(JSON.stringify(defaultSubjects)), schedules: {}, debugDate: null, ticker: JSON.parse(JSON.stringify(defaultTicker)), sleepLog: {} });
 
         let appData = getBlankData();
         let currentRecordDate = new Date();
@@ -1929,6 +2000,7 @@
             });
             if (!data.ticker) data.ticker = JSON.parse(JSON.stringify(defaultTicker));
             if (data.ticker.isEnabled === undefined) data.ticker.isEnabled = true;
+            if (!data.sleepLog) data.sleepLog = {};
             return data;
         }
 
@@ -3044,9 +3116,51 @@
         function toggleSubjectActive(id) { if (appData.subjects[id]) { appData.subjects[id].isActive = !appData.subjects[id].isActive; saveData(); updateUI(); } }
         function deleteSubjectRequest(id) { showAppConfirm("削除確認", `「${appData.subjects[id].name}」を完全に削除しますか？`, () => { delete appData.subjects[id]; if (appData.currentSubjectId === id) appData.currentSubjectId = ALL_SUBJECTS_ID; saveData(); updateUI(); }); }
         function editSubject(id) { editingSubjectId = id; document.getElementById('edit-subject-name-input').value = appData.subjects[id].name; document.getElementById('unit-editor-area').classList.remove('hidden'); document.getElementById('challenge-editor-area').classList.add('hidden'); renderUnitList(); resetUnitInput(); }
-        function editChallenge(id) { editingSubjectId = id; const s = appData.subjects[id]; document.getElementById('edit-challenge-name').value = s.name; document.getElementById('edit-challenge-start').value = s.startDate || ''; document.getElementById('edit-challenge-end').value = s.examDate || ''; document.getElementById('challenge-editor-area').classList.remove('hidden'); document.getElementById('unit-editor-area').classList.add('hidden'); }
+
+        function editChallenge(id) {
+            editingSubjectId = id;
+            const s = appData.subjects[id];
+            document.getElementById('edit-challenge-name').value = s.name;
+            document.getElementById('edit-challenge-start').value = s.startDate || '';
+            document.getElementById('edit-challenge-end').value = s.examDate || '';
+
+            // 自動チェック設定の反映
+            const autoType = s.autoCheckType || '';
+            document.getElementById('edit-challenge-auto-type').value = autoType;
+            document.getElementById('edit-challenge-target-time').value = s.autoCheckTime || '';
+            toggleAutoTimeInput();
+
+            document.getElementById('challenge-editor-area').classList.remove('hidden');
+            document.getElementById('unit-editor-area').classList.add('hidden');
+        }
+
         function updateSubjectName() { const n = document.getElementById('edit-subject-name-input').value.trim(); if (n) { appData.subjects[editingSubjectId].name = n; saveData(); updateUI(); } }
-        function saveChallengeSettings() { const s = appData.subjects[editingSubjectId]; s.name = document.getElementById('edit-challenge-name').value; s.startDate = document.getElementById('edit-challenge-start').value || null; s.examDate = document.getElementById('edit-challenge-end').value || null; saveData(); updateUI(); document.getElementById('challenge-editor-area').classList.add('hidden'); }
+
+        function saveChallengeSettings() {
+            const s = appData.subjects[editingSubjectId];
+            s.name = document.getElementById('edit-challenge-name').value;
+            s.startDate = document.getElementById('edit-challenge-start').value || null;
+            s.examDate = document.getElementById('edit-challenge-end').value || null;
+
+            // 自動チェック設定の保存
+            s.autoCheckType = document.getElementById('edit-challenge-auto-type').value;
+            s.autoCheckTime = document.getElementById('edit-challenge-target-time').value;
+
+            saveData();
+            updateUI();
+            document.getElementById('challenge-editor-area').classList.add('hidden');
+        }
+
+        function toggleAutoTimeInput() {
+            const type = document.getElementById('edit-challenge-auto-type').value;
+            const area = document.getElementById('auto-time-input-area');
+            if (type) {
+                area.classList.remove('hidden');
+            } else {
+                area.classList.add('hidden');
+            }
+        }
+
         function closeUnitEditor() { document.getElementById('unit-editor-area').classList.add('hidden'); }
         function closeChallengeEditor() { document.getElementById('challenge-editor-area').classList.add('hidden'); }
         // ★修正版：チェックボックス付きの単元リスト生成関数
@@ -3910,7 +4024,7 @@
             document.getElementById('total-progress-text').textContent = `${percentage}%`;
             progressCircleChart.update();
 
-            renderRecordLists(); renderCalendar(); updatePaceChart(isChallenge);
+            renderRecordLists(); renderCalendar(); updatePaceChart(isChallenge); renderSleepChart(); loadSleepLogDate();
             if (document.getElementById('manage-screen').classList.contains('active')) renderManageScreen();
             document.body.style.opacity = 1;
         }
@@ -3932,6 +4046,237 @@
                 paceChart.update();
             }
         }
+
+        // --- Sleep Rhythm Logic ---
+        let sleepChartRange = 7;
+
+        function loadSleepLogDate() {
+            const dateStr = document.getElementById('sleep-log-date').value || getTodayStr();
+            const log = (appData.sleepLog && appData.sleepLog[dateStr]) || { wake: '', bed: '' };
+            document.getElementById('sleep-log-wake').value = log.wake || '';
+            document.getElementById('sleep-log-bed').value = log.bed || '';
+        }
+
+        function saveSleepLog() {
+            const dateStr = document.getElementById('sleep-log-date').value;
+            if (!dateStr) return;
+            const wake = document.getElementById('sleep-log-wake').value;
+            const bed = document.getElementById('sleep-log-bed').value;
+
+            if (!appData.sleepLog) appData.sleepLog = {};
+            appData.sleepLog[dateStr] = { wake, bed };
+
+            // 自動チェック判定
+            checkSleepLogAutoChallenge(dateStr, wake, bed);
+
+            saveData();
+            renderSleepChart();
+            showToast("記録しました");
+        }
+
+        function checkSleepLogAutoChallenge(dateStr, wake, bed) {
+            const challenges = getActiveChallenges();
+            let updated = false;
+
+            challenges.forEach(c => {
+                if (!c.autoCheckType || !c.autoCheckTime) return;
+
+                let achieved = false;
+
+                if (c.autoCheckType === 'waketime' && wake) {
+                    const wakeMin = timeToMinutes(wake);
+                    const targetMin = timeToMinutes(c.autoCheckTime);
+                    if (wakeMin <= targetMin) achieved = true;
+                } else if (c.autoCheckType === 'bedtime' && bed) {
+                    const bedMin = timeToMinutes(bed, true);
+                    const targetMin = timeToMinutes(c.autoCheckTime, true);
+                    if (bedMin <= targetMin) achieved = true;
+                }
+
+                if (achieved) {
+                    if (!c.challengeHistory) c.challengeHistory = {};
+                    if (!c.challengeHistory[dateStr]) {
+                        c.challengeHistory[dateStr] = true;
+                        updated = true;
+                    }
+                }
+            });
+
+            if (updated) {
+                renderChallengeMatrix();
+                showToast("目標達成！チャレンジを更新しました");
+            }
+        }
+
+        function timeToMinutes(timeStr, isBedtime = false) {
+            if (!timeStr) return 9999;
+            const [h, m] = timeStr.split(':').map(Number);
+            let total = h * 60 + m;
+            // 就寝時間の場合、00:00-03:59 (深夜) は24:00-27:59 (翌日) として扱う
+            // 今回はグラフ描画範囲の 04:00 ～ 28:00 に合わせる
+            if (isBedtime && h < 4) total += 24 * 60;
+            return total;
+        }
+
+        function changeSleepChartRange(days) {
+            sleepChartRange = days;
+            // ボタンの見た目更新
+            document.querySelectorAll('.chart-range-btn').forEach(btn => {
+                if (parseInt(btn.dataset.range) === days) {
+                    btn.classList.remove('text-gray-400', 'hover:bg-gray-800');
+                    btn.classList.add('bg-gray-700', 'text-white');
+                } else {
+                    btn.classList.add('text-gray-400', 'hover:bg-gray-800');
+                    btn.classList.remove('bg-gray-700', 'text-white');
+                }
+            });
+            renderSleepChart();
+        }
+
+        function renderSleepChart() {
+            const svg = document.getElementById('sleep-chart-svg');
+            if (!svg) return;
+            svg.innerHTML = '';
+
+            const today = getToday();
+            const days = [];
+
+            // X軸データの生成 (過去N日)
+            for (let i = sleepChartRange - 1; i >= 0; i--) {
+                const d = new Date(today);
+                d.setDate(d.getDate() - i);
+                days.push(formatDate(d));
+            }
+
+            // 描画サイズ定数
+            const width = svg.clientWidth || 300; // fallback
+            const height = svg.clientHeight || 150;
+            const padding = { top: 10, right: 10, bottom: 20, left: 30 };
+            const chartW = width - padding.left - padding.right;
+            const chartH = height - padding.top - padding.bottom;
+
+            // Y軸スケール: 04:00 (240min) ～ 28:00 (1680min)
+            // min = 240, max = 1680. range = 1440.
+            const minMin = 240;
+            const maxMin = 1680;
+            const rangeMin = 1440;
+
+            const getY = (timeStr, isBed) => {
+                if (!timeStr) return null;
+                const min = timeToMinutes(timeStr, isBed);
+                if (min < minMin || min > maxMin) return null; // 範囲外
+                const percent = (min - minMin) / rangeMin;
+                return padding.top + (percent * chartH);
+            };
+
+            const getX = (idx) => {
+                return padding.left + (idx / (days.length - 1)) * chartW;
+            };
+
+            // ガイドラインを描画 (06:00, 12:00, 18:00, 24:00)
+            const guides = [
+                { min: 360, label: '06:00' },
+                { min: 720, label: '12:00' },
+                { min: 1080, label: '18:00' },
+                { min: 1440, label: '00:00' }
+            ];
+
+            guides.forEach(g => {
+                const y = padding.top + ((g.min - minMin) / rangeMin) * chartH;
+
+                // line
+                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                line.setAttribute("x1", padding.left);
+                line.setAttribute("y1", y);
+                line.setAttribute("x2", width - padding.right);
+                line.setAttribute("y2", y);
+                line.setAttribute("stroke", "#334155");
+                line.setAttribute("stroke-width", "1");
+                line.setAttribute("stroke-dasharray", "4 4");
+                svg.appendChild(line);
+
+                // label
+                const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                txt.setAttribute("x", padding.left - 5);
+                txt.setAttribute("y", y + 3);
+                txt.setAttribute("text-anchor", "end");
+                txt.setAttribute("fill", "#64748b");
+                txt.setAttribute("font-size", "9");
+                txt.textContent = g.label;
+                svg.appendChild(txt);
+            });
+
+            // データプロット
+            const wakePoints = [];
+            const bedPoints = [];
+
+            days.forEach((dStr, idx) => {
+                const log = (appData.sleepLog && appData.sleepLog[dStr]);
+                const x = getX(idx);
+
+                if (log) {
+                    const yWake = getY(log.wake, false);
+                    const yBed = getY(log.bed, true);
+
+                    if (yWake !== null) wakePoints.push({ x, y: yWake });
+                    if (yBed !== null) bedPoints.push({ x, y: yBed });
+                }
+
+                // X軸ラベル (間引き)
+                if (sleepChartRange > 14 && idx % 5 !== 0) return;
+
+                const dObj = new Date(dStr);
+                const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                txt.setAttribute("x", x);
+                txt.setAttribute("y", height - 5);
+                txt.setAttribute("text-anchor", "middle");
+                txt.setAttribute("fill", "#94a3b8");
+                txt.setAttribute("font-size", "9");
+                txt.textContent = `${dObj.getMonth() + 1}/${dObj.getDate()}`;
+                svg.appendChild(txt);
+
+                // 縦グリッド
+                const vLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                vLine.setAttribute("x1", x);
+                vLine.setAttribute("y1", padding.top);
+                vLine.setAttribute("x2", x);
+                vLine.setAttribute("y2", height - padding.bottom);
+                vLine.setAttribute("stroke", "#1e293b");
+                vLine.setAttribute("stroke-width", "1");
+                svg.insertBefore(vLine, svg.firstChild);
+            });
+
+            // 折れ線を描画する関数
+            const drawPolyline = (points, color) => {
+                if (points.length < 2) return;
+                const pathData = points.map((p, i) => (i === 0 ? "M" : "L") + `${p.x},${p.y}`).join(" ");
+                const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                path.setAttribute("d", pathData);
+                path.setAttribute("fill", "none");
+                path.setAttribute("stroke", color);
+                path.setAttribute("stroke-width", "2");
+                svg.appendChild(path);
+
+                // 点を描画
+                points.forEach(p => {
+                    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                    circle.setAttribute("cx", p.x);
+                    circle.setAttribute("cy", p.y);
+                    circle.setAttribute("r", "3");
+                    circle.setAttribute("fill", color);
+                    circle.setAttribute("stroke", "#1e293b");
+                    circle.setAttribute("stroke-width", "1");
+                    svg.appendChild(circle);
+                });
+            };
+
+            drawPolyline(wakePoints, "#facc15"); // 黄色 (起床)
+            drawPolyline(bedPoints, "#c084fc"); // 紫色 (就寝)
+        }
+
+        // 初期化時に呼ぶ
+        // updateUIの最後に renderSleepChart() を追加する必要がある
+
 
         // ナビゲーションのイベント設定
         document.querySelectorAll('.nav-btn').forEach(btn => {
