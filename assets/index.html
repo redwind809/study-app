@@ -4264,18 +4264,21 @@
                 return padding.left + (idx * colWidth) + (colWidth / 2);
             };
 
-            // ガイドライン（時間横線）
-            const guides = [
-                { min: -360, label: '18' }, // 前日18:00
-                { min: 0, label: '0' },     // 当日0:00
-                { min: 360, label: '06' },  // 当日06:00
-                { min: 720, label: '12' },  // 当日12:00
-                { min: 1080, label: '18' }  // 当日18:00
-            ];
+            // コラム幅
+            const colWidth = chartW / days.length;
 
-            guides.forEach(g => {
-                const y = getY(g.min);
-                if (y === null) return;
+            // --- 1. 時間ガイドライン (横線) - 3時間ごと ---
+            // -360(18), -180(21), 0(0), 180(3), 360(6), 540(9), 720(12), 900(15), 1080(18)
+            for (let m = minMin; m <= maxMin; m += 180) {
+                const y = getY(m);
+                if (y === null) continue;
+
+                // 24時は0時表記、それ以外は時刻
+                let labelHour = Math.floor(m / 60);
+                if (labelHour < 0) labelHour += 24;
+                if (labelHour >= 24) labelHour -= 24;
+
+                const isZero = (m === 0);
 
                 // line
                 const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
@@ -4283,9 +4286,9 @@
                 line.setAttribute("y1", y);
                 line.setAttribute("x2", width - padding.right);
                 line.setAttribute("y2", y);
-                line.setAttribute("stroke", g.min === 0 ? "#64748b" : "#334155"); // 0時は少し濃く
+                line.setAttribute("stroke", isZero ? "#64748b" : "#334155");
                 line.setAttribute("stroke-width", "1");
-                if (g.min !== 0) line.setAttribute("stroke-dasharray", "4 4");
+                if (!isZero) line.setAttribute("stroke-dasharray", "2 2");
                 svg.appendChild(line);
 
                 // label
@@ -4293,71 +4296,91 @@
                 txt.setAttribute("x", padding.left - 5);
                 txt.setAttribute("y", y + 3);
                 txt.setAttribute("text-anchor", "end");
-                txt.setAttribute("fill", g.min === 0 ? "#94a3b8" : "#64748b");
-                txt.setAttribute("font-size", "9");
-                txt.textContent = g.label;
+                txt.setAttribute("fill", isZero ? "#cbd5e1" : "#64748b");
+                txt.setAttribute("font-size", "8");
+                txt.textContent = String(labelHour);
                 svg.appendChild(txt);
-            });
+            }
 
-            // データプロット
-            const colWidth = chartW / days.length;
-            const barWidth = Math.max(2, colWidth * 0.6);
+            // --- 2. 日付グリッド (縦線) & データプロット ---
+            const barWidth = Math.max(2, colWidth * 0.7);
 
             days.forEach((dStr, idx) => {
                 const xCenter = getX(idx);
+                const xLeft = padding.left + (idx * colWidth);
 
-                // 当日データ (起床時間を使う)
+                // 縦グリッド線
+                const vLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                vLine.setAttribute("x1", xLeft);
+                vLine.setAttribute("y1", padding.top);
+                vLine.setAttribute("x2", xLeft);
+                vLine.setAttribute("y2", height - padding.bottom);
+                vLine.setAttribute("stroke", "#1e293b");
+                vLine.setAttribute("stroke-width", "1");
+                svg.appendChild(vLine);
+
+                // 右端の閉じ線
+                if (idx === days.length - 1) {
+                    const xRight = padding.left + ((idx + 1) * colWidth);
+                    const vLineR = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                    vLineR.setAttribute("x1", xRight);
+                    vLineR.setAttribute("y1", padding.top);
+                    vLineR.setAttribute("x2", xRight);
+                    vLineR.setAttribute("y2", height - padding.bottom);
+                    vLineR.setAttribute("stroke", "#1e293b");
+                    vLineR.setAttribute("stroke-width", "1");
+                    svg.appendChild(vLineR);
+                }
+
+                // 日付ラベル
+                const showLabel = (sleepChartRange <= 14) || (idx % 3 === 0);
+
+                if (showLabel) {
+                    const dObj = new Date(dStr);
+                    const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                    txt.setAttribute("x", xCenter);
+                    txt.setAttribute("y", height - 5);
+                    txt.setAttribute("text-anchor", "middle");
+                    txt.setAttribute("fill", "#94a3b8");
+                    txt.setAttribute("font-size", "8");
+                    txt.textContent = `${dObj.getDate()}`;
+                    svg.appendChild(txt);
+                }
+
+                // データプロット
                 const logCurr = (appData.sleepLog && appData.sleepLog[dStr]);
 
-                // 前日データ (就寝時間を使う)
                 const dObj = new Date(dStr);
                 const prevD = new Date(dObj);
                 prevD.setDate(prevD.getDate() - 1);
                 const prevStr = formatDate(prevD);
                 const logPrev = (appData.sleepLog && appData.sleepLog[prevStr]);
 
-                // 日付ラベル
-                if (sleepChartRange <= 14 || idx % 5 === 0) {
-                    const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
-                    txt.setAttribute("x", xCenter);
-                    txt.setAttribute("y", height - 5);
-                    txt.setAttribute("text-anchor", "middle");
-                    txt.setAttribute("fill", "#94a3b8");
-                    txt.setAttribute("font-size", "9");
-                    txt.textContent = `${dObj.getMonth() + 1}/${dObj.getDate()}`;
-                    svg.appendChild(txt);
-                }
-
                 if (logCurr || logPrev) {
-                    // 前日の就寝 〜 当日の起床 をつなぐ
                     const minBed = logPrev ? getMinutes(logPrev.bed, true) : null;
                     const minWake = logCurr ? getMinutes(logCurr.wake, false) : null;
 
                     const yBed = getY(minBed);
                     const yWake = getY(minWake);
 
-                    // 睡眠バー
-                    // 両方ある場合: 矩形でつなぐ
                     if (yBed !== null && yWake !== null && yWake > yBed) {
                         const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
                         rect.setAttribute("x", xCenter - barWidth / 2);
                         rect.setAttribute("y", yBed);
                         rect.setAttribute("width", barWidth);
                         rect.setAttribute("height", yWake - yBed);
-                        rect.setAttribute("rx", "2");
-                        rect.setAttribute("fill", "rgba(139, 92, 246, 0.4)");
+                        rect.setAttribute("rx", "1");
+                        rect.setAttribute("fill", "rgba(139, 92, 246, 0.5)");
                         rect.setAttribute("stroke", "none");
                         svg.appendChild(rect);
                     }
-                    // 片方だけある場合: 点を描画 (あるいは端まで伸ばす？とりあえず点は描く)
 
-                    // ポイント描画
                     const drawPoint = (y, color) => {
                         if (y === null) return;
                         const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
                         circle.setAttribute("cx", xCenter);
                         circle.setAttribute("cy", y);
-                        circle.setAttribute("r", "3");
+                        circle.setAttribute("r", "2.5");
                         circle.setAttribute("fill", color);
                         circle.setAttribute("stroke", "#1e293b");
                         circle.setAttribute("stroke-width", "1");
