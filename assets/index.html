@@ -4216,41 +4216,66 @@
             // 描画サイズ定数
             const width = svg.clientWidth || 300;
             const height = svg.clientHeight || 150;
-            // 左側に時間ラベル、下部に日付ラベル
-            const padding = { top: 10, right: 10, bottom: 20, left: 30 };
+            const padding = { top: 20, right: 10, bottom: 20, left: 30 };
             const chartW = width - padding.left - padding.right;
             const chartH = height - padding.top - padding.bottom;
 
-            // Y軸スケール: 04:00 (240min) ～ 28:00 (1680min)
-            // 上が04:00、下が28:00
-            const minMin = 240;
-            const maxMin = 1680;
+            // Y軸スケール: 前日18:00 (-360) ～ 当日18:00 (1080)
+            // これにより 0:00 が中央やや上に来て、睡眠(夜〜朝)が連続して表示される
+            const minMin = -360;
+            const maxMin = 1080;
             const rangeMin = 1440;
 
-            const getY = (timeStr, isBed) => {
+            // 時刻文字列を分に変換 (0:00基準)
+            // isPrevBed: 前日の就寝時間かどうか
+            const getMinutes = (timeStr, isPrevBed) => {
                 if (!timeStr) return null;
-                const min = timeToMinutes(timeStr, isBed);
+                const [h, m] = timeStr.split(':').map(Number);
+                let total = h * 60 + m;
+
+                if (isPrevBed) {
+                    // 前日の就寝時間の場合
+                    // 12:00以降なら前日の夜とみなしてマイナスオフセット
+                    // 00:00〜12:00なら当日の未明とみなしてそのまま（ただし前日データ由来なので当日の早朝寝と同じ扱い）
+                    // ※通常「就寝」は夜なので、例えば23:00なら-60、25:00(01:00)なら60となるべきだが
+                    // input type=timeは01:00で返ってくる。
+                    // 文脈的に「前日のログ」にある「01:00」は「前日の深夜25時」＝「当日の01:00」なのでそのまま。
+                    // 「前日のログ」にある「23:00」は「前日の23時」なので「当日の-60分」。
+                    if (total > 720) { // 12:00以後は前日扱い
+                        total -= 1440;
+                    }
+                    // 12:00以前(午前中)はそのまま（深夜就寝）
+                } else {
+                    // 当日の起床時間
+                    // そのまま
+                }
+                return total;
+            };
+
+            const getY = (min) => {
+                if (min === null) return null;
                 if (min < minMin || min > maxMin) return null;
                 const percent = (min - minMin) / rangeMin;
                 return padding.top + (percent * chartH);
             };
 
             const getX = (idx) => {
-                // 各カラムの中央を返す
                 const colWidth = chartW / days.length;
                 return padding.left + (idx * colWidth) + (colWidth / 2);
             };
 
-            // ガイドライン（時間横線）を描画
+            // ガイドライン（時間横線）
             const guides = [
-                { min: 360, label: '06' },
-                { min: 720, label: '12' },
-                { min: 1080, label: '18' },
-                { min: 1440, label: '24' }
+                { min: -360, label: '18' }, // 前日18:00
+                { min: 0, label: '0' },     // 当日0:00
+                { min: 360, label: '06' },  // 当日06:00
+                { min: 720, label: '12' },  // 当日12:00
+                { min: 1080, label: '18' }  // 当日18:00
             ];
 
             guides.forEach(g => {
-                const y = padding.top + ((g.min - minMin) / rangeMin) * chartH;
+                const y = getY(g.min);
+                if (y === null) return;
 
                 // line
                 const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
@@ -4258,9 +4283,9 @@
                 line.setAttribute("y1", y);
                 line.setAttribute("x2", width - padding.right);
                 line.setAttribute("y2", y);
-                line.setAttribute("stroke", "#334155");
+                line.setAttribute("stroke", g.min === 0 ? "#64748b" : "#334155"); // 0時は少し濃く
                 line.setAttribute("stroke-width", "1");
-                line.setAttribute("stroke-dasharray", "4 4");
+                if (g.min !== 0) line.setAttribute("stroke-dasharray", "4 4");
                 svg.appendChild(line);
 
                 // label
@@ -4268,7 +4293,7 @@
                 txt.setAttribute("x", padding.left - 5);
                 txt.setAttribute("y", y + 3);
                 txt.setAttribute("text-anchor", "end");
-                txt.setAttribute("fill", "#64748b");
+                txt.setAttribute("fill", g.min === 0 ? "#94a3b8" : "#64748b");
                 txt.setAttribute("font-size", "9");
                 txt.textContent = g.label;
                 svg.appendChild(txt);
@@ -4280,11 +4305,19 @@
 
             days.forEach((dStr, idx) => {
                 const xCenter = getX(idx);
-                const log = (appData.sleepLog && appData.sleepLog[dStr]);
 
-                // 日付ラベル (下部)
+                // 当日データ (起床時間を使う)
+                const logCurr = (appData.sleepLog && appData.sleepLog[dStr]);
+
+                // 前日データ (就寝時間を使う)
+                const dObj = new Date(dStr);
+                const prevD = new Date(dObj);
+                prevD.setDate(prevD.getDate() - 1);
+                const prevStr = formatDate(prevD);
+                const logPrev = (appData.sleepLog && appData.sleepLog[prevStr]);
+
+                // 日付ラベル
                 if (sleepChartRange <= 14 || idx % 5 === 0) {
-                    const dObj = new Date(dStr);
                     const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
                     txt.setAttribute("x", xCenter);
                     txt.setAttribute("y", height - 5);
@@ -4295,49 +4328,32 @@
                     svg.appendChild(txt);
                 }
 
-                if (log) {
-                    const yWake = getY(log.wake, false);
-                    const yBed = getY(log.bed, true);
-                    const chartTop = padding.top;
-                    const chartBottom = height - padding.bottom;
+                if (logCurr || logPrev) {
+                    // 前日の就寝 〜 当日の起床 をつなぐ
+                    const minBed = logPrev ? getMinutes(logPrev.bed, true) : null;
+                    const minWake = logCurr ? getMinutes(logCurr.wake, false) : null;
 
-                    // 睡眠時間を塗りつぶし (グラフの上端〜起床、就寝〜グラフの下端)
-                    // 色: スリープカラー (例: 紫系の半透明)
-                    const sleepColor = "rgba(139, 92, 246, 0.3)"; // violet-500 opacity
-                    const sleepStroke = "none";
+                    const yBed = getY(minBed);
+                    const yWake = getY(minWake);
 
-                    // 1. 朝の睡眠 (04:00 -> 起床)
-                    if (yWake !== null) {
-                        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-                        rect.setAttribute("x", xCenter - barWidth / 2);
-                        rect.setAttribute("y", chartTop);
-                        rect.setAttribute("width", barWidth);
-                        // yWakeがchartTopより小さい(=4時前)の場合は描画しない、または0にする
-                        const h = Math.max(0, yWake - chartTop);
-                        rect.setAttribute("height", h);
-                        rect.setAttribute("rx", "1");
-                        rect.setAttribute("fill", sleepColor);
-                        rect.setAttribute("stroke", sleepStroke);
-                        svg.appendChild(rect);
-                    }
-
-                    // 2. 夜の睡眠 (就寝 -> 28:00)
-                    if (yBed !== null) {
+                    // 睡眠バー
+                    // 両方ある場合: 矩形でつなぐ
+                    if (yBed !== null && yWake !== null && yWake > yBed) {
                         const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
                         rect.setAttribute("x", xCenter - barWidth / 2);
                         rect.setAttribute("y", yBed);
                         rect.setAttribute("width", barWidth);
-                        // chartBottomより大きい(=28時過ぎ)の場合は描画しない
-                        const h = Math.max(0, chartBottom - yBed);
-                        rect.setAttribute("height", h);
-                        rect.setAttribute("rx", "1");
-                        rect.setAttribute("fill", sleepColor);
-                        rect.setAttribute("stroke", sleepStroke);
+                        rect.setAttribute("height", yWake - yBed);
+                        rect.setAttribute("rx", "2");
+                        rect.setAttribute("fill", "rgba(139, 92, 246, 0.4)");
+                        rect.setAttribute("stroke", "none");
                         svg.appendChild(rect);
                     }
+                    // 片方だけある場合: 点を描画 (あるいは端まで伸ばす？とりあえず点は描く)
 
                     // ポイント描画
                     const drawPoint = (y, color) => {
+                        if (y === null) return;
                         const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
                         circle.setAttribute("cx", xCenter);
                         circle.setAttribute("cy", y);
@@ -4348,8 +4364,8 @@
                         svg.appendChild(circle);
                     };
 
-                    if (yWake !== null) drawPoint(yWake, "#facc15"); // 黄色
-                    if (yBed !== null) drawPoint(yBed, "#c084fc");   // 紫色
+                    drawPoint(yWake, "#facc15"); // 黄色 (起床)
+                    drawPoint(yBed, "#c084fc");   // 紫色 (就寝)
                 }
             });
         }
