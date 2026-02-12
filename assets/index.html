@@ -683,7 +683,8 @@
         <div id="header-date-display" class="text-sm font-mono font-bold text-gray-200 whitespace-nowrap">--/--</div>
 
         <div id="header-ticker-box"
-            class="hidden sm:block flex-1 relative h-8 bg-gray-900/50 rounded overflow-hidden cursor-pointer group select-none"
+            class="hidden sm:block flex-1 relative h-8 bg-gray-900/50 rounded overflow-hidden cursor-pointer group select-none border-none outline-none ring-0"
+            style="border: none !important; outline: none !important; box-shadow: none !important;"
             onclick="forceNextTicker()">
             <div class="ticker-wrapper relative w-full h-full">
                 <div class="ticker-item text-xs text-gray-500">Loading...</div>
@@ -1500,7 +1501,7 @@
 
     <script>
         // --- 1. Variables & Base Data ---
-        const APP_VERSION = "v2.0"; // ★変更を加えるたびにここを書き換える
+        const APP_VERSION = "v2.1"; // ★変更を加えるたびにここを書き換える
         const ALL_SUBJECTS_ID = 'all';
         const SUBJECT_FIXED_COLORS = { chemistry: 'text-app-accent', math: 'text-green-400', physics: 'text-purple-400' };
         const COLOR_PALETTE = ['text-sky-400', 'text-emerald-400', 'text-violet-400', 'text-amber-400', 'text-rose-400', 'text-fuchsia-400', 'text-cyan-400', 'text-lime-400', 'text-indigo-400', 'text-pink-400', 'text-yellow-400', 'text-teal-400', 'text-blue-500', 'text-green-500', 'text-purple-500', 'text-orange-500', 'text-red-500', 'text-blue-300', 'text-green-300', 'text-purple-300', 'text-orange-300', 'text-rose-300', 'text-emerald-300', 'text-sky-300'];
@@ -3591,7 +3592,13 @@
                     }
                 });
         }
-        function openSettingsModal() { document.getElementById('settings-modal').classList.remove('hidden'); updateThemeBtn(document.documentElement.classList.contains('light-mode')); }
+        function openSettingsModal() {
+            document.getElementById('settings-modal').classList.remove('hidden');
+            updateThemeBtn(document.documentElement.classList.contains('light-mode'));
+            // バージョン番号を反映
+            const vDisplay = document.getElementById('app-version-display');
+            if (vDisplay && typeof APP_VERSION !== 'undefined') vDisplay.textContent = APP_VERSION;
+        }
         function closeSettingsModal() { document.getElementById('settings-modal').classList.add('hidden'); }
         function requestReset() { showAppConfirm("全リセット", "全てのデータを消去しますか？", () => { appData = getBlankData(); saveData(); updateUI(); closeSettingsModal(); }); }
         function exportData() { const blob = new Blob([JSON.stringify(appData)], { type: "application/json" }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `backup_${getTodayStr()}.json`; a.click(); }
