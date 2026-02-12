@@ -1826,7 +1826,8 @@
                                 { properties: { title: 'サマリー(進捗)', gridProperties: { frozenRowCount: 1 } } },
                                 { properties: { title: '全単元リスト', gridProperties: { frozenRowCount: 1 } } },
                                 { properties: { title: '日次推移(Daily)', gridProperties: { frozenRowCount: 1 } } },
-                                { properties: { title: 'チャレンジ記録', gridProperties: { frozenRowCount: 1 } } }
+                                { properties: { title: 'チャレンジ記録', gridProperties: { frozenRowCount: 1 } } },
+                                { properties: { title: '生活リズム', gridProperties: { frozenRowCount: 1 } } }
                             ]
                         })
                     });
@@ -1922,6 +1923,15 @@
                     }
                 });
 
+                // (E) 生活リズム
+                const sleepLogRows = [['日付', '起床時間', '就寝時間']];
+                if (appData.sleepLog) {
+                    Object.keys(appData.sleepLog).sort().forEach(date => {
+                        const log = appData.sleepLog[date];
+                        sleepLogRows.push([date, log.wake || '', log.bed || '']);
+                    });
+                }
+
                 // 4. 完全クリア & 書き込み
                 if (!isNewSheet) {
                     await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchClear`, {
@@ -1932,7 +1942,8 @@
                                 "'サマリー(進捗)'!A:Z",
                                 "'全単元リスト'!A:Z",
                                 "'日次推移(Daily)'!A:Z",
-                                "'チャレンジ記録'!A:Z"
+                                "'チャレンジ記録'!A:Z",
+                                "'生活リズム'!A:Z"
                             ]
                         })
                     });
@@ -1943,6 +1954,7 @@
                 dataBody.push({ range: `'全単元リスト'!A1`, values: detailRows });
                 dataBody.push({ range: `'日次推移(Daily)'!A1`, values: historyRows });
                 dataBody.push({ range: `'チャレンジ記録'!A1`, values: challengeRows });
+                dataBody.push({ range: `'生活リズム'!A1`, values: sleepLogRows });
 
                 if (dataBody.length > 0) {
                     await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchUpdate`, {
