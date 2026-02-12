@@ -905,23 +905,36 @@
 
                 <!-- 入力エリア -->
                 <div class="bg-gray-800/50 rounded-lg p-3 mb-4 border border-gray-700">
-                    <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center justify-between mb-4 bg-gray-900 rounded border border-gray-700 p-1">
+                        <button onclick="shiftSleepLogDate(-1)"
+                            class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"><i
+                                class="fas fa-chevron-left"></i></button>
                         <input type="date" id="sleep-log-date"
-                            class="bg-gray-900 border border-gray-700 text-white text-xs rounded px-2 py-1 outline-none"
+                            class="bg-transparent text-white text-xs font-bold text-center outline-none"
                             onchange="loadSleepLogDate()">
-                        <button onclick="saveSleepLog()"
-                            class="bg-app-accent text-app-dark text-xs font-bold px-3 py-1 rounded hover:bg-sky-300">記録</button>
+                        <button onclick="shiftSleepLogDate(1)"
+                            class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"><i
+                                class="fas fa-chevron-right"></i></button>
                     </div>
-                    <div class="flex gap-4">
-                        <div class="flex-1">
-                            <label class="text-[10px] text-gray-500 block mb-1">起床</label>
-                            <input type="time" id="sleep-log-wake"
-                                class="w-full bg-gray-900 border-b border-gray-600 text-white text-lg font-mono focus:border-app-accent outline-none">
+
+                    <div class="flex flex-col gap-3">
+                        <div class="flex items-end gap-2">
+                            <div class="flex-1">
+                                <label class="text-[10px] text-gray-500 block mb-1">起床</label>
+                                <input type="time" id="sleep-log-wake"
+                                    class="w-full bg-gray-900 border-b border-gray-600 text-white text-lg font-mono focus:border-app-accent outline-none">
+                            </div>
+                            <button onclick="saveSleepLog('wake')"
+                                class="bg-yellow-600 hover:bg-yellow-500 text-white text-[10px] font-bold px-3 py-2 rounded mb-1 whitespace-nowrap">起床記録</button>
                         </div>
-                        <div class="flex-1">
-                            <label class="text-[10px] text-gray-500 block mb-1">就寝 (深夜は28時まで対応)</label>
-                            <input type="time" id="sleep-log-bed"
-                                class="w-full bg-gray-900 border-b border-gray-600 text-white text-lg font-mono focus:border-app-accent outline-none">
+                        <div class="flex items-end gap-2">
+                            <div class="flex-1">
+                                <label class="text-[10px] text-gray-500 block mb-1">就寝 (深夜は28時まで対応)</label>
+                                <input type="time" id="sleep-log-bed"
+                                    class="w-full bg-gray-900 border-b border-gray-600 text-white text-lg font-mono focus:border-app-accent outline-none">
+                            </div>
+                            <button onclick="saveSleepLog('bed')"
+                                class="bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-bold px-3 py-2 rounded mb-1 whitespace-nowrap">就寝記録</button>
                         </div>
                     </div>
                 </div>
@@ -4058,27 +4071,60 @@
         let sleepChartRange = 7;
 
         function loadSleepLogDate() {
-            const dateStr = document.getElementById('sleep-log-date').value || getTodayStr();
+            const dateInput = document.getElementById('sleep-log-date');
+            if (!dateInput.value) dateInput.value = getTodayStr(); // 初期値セット
+            const dateStr = dateInput.value;
+
             const log = (appData.sleepLog && appData.sleepLog[dateStr]) || { wake: '', bed: '' };
             document.getElementById('sleep-log-wake').value = log.wake || '';
             document.getElementById('sleep-log-bed').value = log.bed || '';
         }
 
-        function saveSleepLog() {
+        function shiftSleepLogDate(diff) {
+            const dateInput = document.getElementById('sleep-log-date');
+            if (!dateInput.value) dateInput.value = getTodayStr();
+
+            const current = new Date(dateInput.value);
+            current.setDate(current.getDate() + diff);
+            dateInput.value = formatDate(current);
+            loadSleepLogDate();
+        }
+
+        function saveSleepLog(type) {
             const dateStr = document.getElementById('sleep-log-date').value;
             if (!dateStr) return;
-            const wake = document.getElementById('sleep-log-wake').value;
-            const bed = document.getElementById('sleep-log-bed').value;
 
             if (!appData.sleepLog) appData.sleepLog = {};
-            appData.sleepLog[dateStr] = { wake, bed };
+            if (!appData.sleepLog[dateStr]) appData.sleepLog[dateStr] = { wake: '', bed: '' };
+
+            let msg = "";
+            let updatedVal = "";
+
+            if (type === 'wake') {
+                const val = document.getElementById('sleep-log-wake').value;
+                appData.sleepLog[dateStr].wake = val;
+                msg = "起床時間を記録しました";
+                updatedVal = val;
+            } else if (type === 'bed') {
+                const val = document.getElementById('sleep-log-bed').value;
+                appData.sleepLog[dateStr].bed = val;
+                msg = "就寝時間を記録しました";
+                updatedVal = val;
+            } else {
+                // fallback for old calls (though now separate buttons)
+                appData.sleepLog[dateStr].wake = document.getElementById('sleep-log-wake').value;
+                appData.sleepLog[dateStr].bed = document.getElementById('sleep-log-bed').value;
+                msg = "記録しました";
+            }
 
             // 自動チェック判定
-            checkSleepLogAutoChallenge(dateStr, wake, bed);
+            // type指定がある場合は、それに関連するチェックのみ行うのが効率的だが
+            // 既存関数は両方チェックするのでそのまま利用（副作用はない）
+            checkSleepLogAutoChallenge(dateStr, appData.sleepLog[dateStr].wake, appData.sleepLog[dateStr].bed);
 
             saveData();
             renderSleepChart();
-            showToast("記録しました");
+            showToast(msg);
         }
 
         function checkSleepLogAutoChallenge(dateStr, wake, bed) {
