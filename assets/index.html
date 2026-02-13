@@ -886,13 +886,13 @@
 
             <!-- タブナビゲーション -->
             <div class="flex mb-4 bg-gray-800 rounded-lg p-1 border border-gray-700">
-                <button onclick="switchHabitTab('tab-habit-check')" id="btn-tab-habit-check"
-                    class="flex-1 py-2 rounded-md text-xs font-bold text-white bg-gray-700 shadow transition-all">
-                    <i class="fas fa-check-square text-challenge-gold mr-1"></i> チェック
-                </button>
                 <button onclick="switchHabitTab('tab-study-time')" id="btn-tab-study-time"
                     class="flex-1 py-2 rounded-md text-xs font-bold text-gray-400 hover:text-white transition-all">
                     <i class="fas fa-stopwatch text-blue-400 mr-1"></i> 勉強時間
+                </button>
+                <button onclick="switchHabitTab('tab-habit-check')" id="btn-tab-habit-check"
+                    class="flex-1 py-2 rounded-md text-xs font-bold text-white bg-gray-700 shadow transition-all">
+                    <i class="fas fa-check-square text-challenge-gold mr-1"></i> チェック
                 </button>
                 <button onclick="switchHabitTab('tab-life-rhythm')" id="btn-tab-life-rhythm"
                     class="flex-1 py-2 rounded-md text-xs font-bold text-gray-400 hover:text-white transition-all">
@@ -1659,7 +1659,7 @@
 
     <script>
         // --- 1. Variables & Base Data ---
-        const APP_VERSION = "v3.1"; // ★変更を加えるたびにここを書き換える
+        const APP_VERSION = "v3.2"; // ★変更を加えるたびにここを書き換える
         const ALL_SUBJECTS_ID = 'all';
         const SUBJECT_FIXED_COLORS = { chemistry: 'text-app-accent', math: 'text-green-400', physics: 'text-purple-400' };
         const COLOR_PALETTE = ['text-sky-400', 'text-emerald-400', 'text-violet-400', 'text-amber-400', 'text-rose-400', 'text-fuchsia-400', 'text-cyan-400', 'text-lime-400', 'text-indigo-400', 'text-pink-400', 'text-yellow-400', 'text-teal-400', 'text-blue-500', 'text-green-500', 'text-purple-500', 'text-orange-500', 'text-red-500', 'text-blue-300', 'text-green-300', 'text-purple-300', 'text-orange-300', 'text-rose-300', 'text-emerald-300', 'text-sky-300'];
