@@ -884,156 +884,144 @@
                 <i class="fas fa-fire text-challenge-gold"></i> 習慣・記録
             </h2>
 
-            <!-- アコーディオン: 習慣チェック表 -->
-            <div class="mb-4">
-                <button onclick="toggleAccordion('acc-challenge')"
-                    class="w-full flex items-center justify-between bg-gray-800 p-3 rounded-t-lg border border-gray-700 hover:bg-gray-700 transition-colors">
-                    <span class="font-bold text-sm text-white flex items-center gap-2"><i
-                            class="fas fa-check-square text-challenge-gold"></i> 習慣チェック表</span>
-                    <i class="fas fa-chevron-down text-gray-400 transition-transform" id="icon-acc-challenge"></i>
+            <!-- タブナビゲーション -->
+            <div class="flex mb-4 bg-gray-800 rounded-lg p-1 border border-gray-700">
+                <button onclick="switchHabitTab('tab-habit-check')" id="btn-tab-habit-check"
+                    class="flex-1 py-2 rounded-md text-xs font-bold text-white bg-gray-700 shadow transition-all">
+                    <i class="fas fa-check-square text-challenge-gold mr-1"></i> チェック
                 </button>
-                <div id="acc-challenge" class="bg-app-panel border-x border-b border-gray-700 rounded-b-lg p-4 hidden">
-                    <div class="overflow-x-auto mb-4">
-                        <div id="challenge-matrix-container" class="min-w-[320px]"></div>
+                <button onclick="switchHabitTab('tab-study-time')" id="btn-tab-study-time"
+                    class="flex-1 py-2 rounded-md text-xs font-bold text-gray-400 hover:text-white transition-all">
+                    <i class="fas fa-stopwatch text-blue-400 mr-1"></i> 勉強時間
+                </button>
+                <button onclick="switchHabitTab('tab-life-rhythm')" id="btn-tab-life-rhythm"
+                    class="flex-1 py-2 rounded-md text-xs font-bold text-gray-400 hover:text-white transition-all">
+                    <i class="fas fa-bed text-purple-400 mr-1"></i> 生活リズム
+                </button>
+            </div>
+
+            <!-- タブ: 習慣チェック表 -->
+            <div id="tab-habit-check" class="bg-app-panel border border-gray-700 rounded-lg p-4 mb-4">
+                <div class="overflow-x-auto mb-4">
+                    <div id="challenge-matrix-container" class="min-w-[320px]"></div>
+                </div>
+                <h3 class="text-xs font-bold text-gray-500 mb-2 uppercase">継続ステータス</h3>
+                <div id="challenge-stats-grid" class="grid grid-cols-2 gap-3"></div>
+            </div>
+
+            <!-- タブ: 勉強時間 -->
+            <div id="tab-study-time" class="bg-app-panel border border-gray-700 rounded-lg p-4 mb-4 hidden">
+                <!-- 入力エリア -->
+                <div class="bg-gray-800/50 rounded-lg p-3 mb-4 border border-gray-700">
+                    <div class="flex items-center justify-between mb-4 bg-gray-900 rounded border border-gray-700 p-1">
+                        <button onclick="shiftStudyLogDate(-1)"
+                            class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"><i
+                                class="fas fa-chevron-left"></i></button>
+                        <input type="date" id="study-log-date"
+                            class="bg-transparent text-white text-xs font-bold text-center outline-none"
+                            onchange="loadStudyLogDate()">
+                        <button onclick="shiftStudyLogDate(1)"
+                            class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"><i
+                                class="fas fa-chevron-right"></i></button>
                     </div>
-                    <h3 class="text-xs font-bold text-gray-500 mb-2 uppercase">継続ステータス</h3>
-                    <div id="challenge-stats-grid" class="grid grid-cols-2 gap-3"></div>
+                    <div class="flex items-end gap-2">
+                        <div class="flex-1">
+                            <label class="text-[10px] text-gray-500 block mb-1">今日の勉強時間</label>
+                            <div class="flex gap-2 items-center">
+                                <input type="number" id="study-log-hours" min="0" placeholder="0"
+                                    class="w-16 bg-gray-900 border-b border-gray-600 text-white text-lg font-mono focus:border-app-accent outline-none text-right">
+                                <span class="text-xs text-gray-400">時間</span>
+                                <input type="number" id="study-log-minutes" min="0" max="59" placeholder="0"
+                                    class="w-16 bg-gray-900 border-b border-gray-600 text-white text-lg font-mono focus:border-app-accent outline-none text-right">
+                                <span class="text-xs text-gray-400">分</span>
+                            </div>
+                        </div>
+                        <button onclick="saveStudyLog()"
+                            class="bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold px-4 py-2 rounded mb-1 whitespace-nowrap shadow-md">保存</button>
+                    </div>
+                </div>
+
+                <!-- グラフエリア -->
+                <div class="bg-app-panel rounded-lg border border-gray-700 p-2">
+                    <div class="flex justify-between items-center mb-2">
+                        <div class="flex gap-2">
+                            <button onclick="changeStudyChartRange(7)"
+                                class="study-chart-range-btn text-[10px] px-2 py-0.5 rounded bg-gray-700 text-white transition-colors"
+                                data-range="7">1週</button>
+                            <button onclick="changeStudyChartRange(14)"
+                                class="study-chart-range-btn text-[10px] px-2 py-0.5 rounded text-gray-400 hover:bg-gray-800 transition-colors"
+                                data-range="14">2週</button>
+                            <button onclick="changeStudyChartRange(30)"
+                                class="study-chart-range-btn text-[10px] px-2 py-0.5 rounded text-gray-400 hover:bg-gray-800 transition-colors"
+                                data-range="30">1ヶ月</button>
+                        </div>
+                        <div class="text-[9px] text-gray-500">合計: <span id="study-total-display"
+                                class="font-bold text-white">0h 0m</span> (期間内)</div>
+                    </div>
+                    <div class="relative w-full h-48 bg-gray-900/50 rounded overflow-hidden">
+                        <canvas id="studyTimeChart"></canvas>
+                    </div>
                 </div>
             </div>
 
-            <!-- アコーディオン: 勉強時間 -->
-            <div class="mb-4">
-                <button onclick="toggleAccordion('acc-study-time')"
-                    class="w-full flex items-center justify-between bg-gray-800 p-3 rounded-t-lg border border-gray-700 hover:bg-gray-700 transition-colors">
-                    <span class="font-bold text-sm text-white flex items-center gap-2"><i
-                            class="fas fa-stopwatch text-blue-400"></i> 勉強時間記録</span>
-                    <i class="fas fa-chevron-down text-gray-400 transition-transform" id="icon-acc-study-time"></i>
-                </button>
-                <div id="acc-study-time" class="bg-app-panel border-x border-b border-gray-700 rounded-b-lg p-4 hidden">
-                    <!-- 入力エリア -->
-                    <div class="bg-gray-800/50 rounded-lg p-3 mb-4 border border-gray-700">
-                        <div
-                            class="flex items-center justify-between mb-4 bg-gray-900 rounded border border-gray-700 p-1">
-                            <button onclick="shiftStudyLogDate(-1)"
-                                class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"><i
-                                    class="fas fa-chevron-left"></i></button>
-                            <input type="date" id="study-log-date"
-                                class="bg-transparent text-white text-xs font-bold text-center outline-none"
-                                onchange="loadStudyLogDate()">
-                            <button onclick="shiftStudyLogDate(1)"
-                                class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"><i
-                                    class="fas fa-chevron-right"></i></button>
+            <!-- タブ: 生活リズム -->
+            <div id="tab-life-rhythm" class="bg-app-panel border border-gray-700 rounded-lg p-4 mb-4 hidden">
+                <!-- 入力エリア -->
+                <div class="bg-gray-800/50 rounded-lg p-3 mb-4 border border-gray-700">
+                    <div class="flex items-center justify-between mb-4 bg-gray-900 rounded border border-gray-700 p-1">
+                        <button onclick="shiftSleepLogDate(-1)"
+                            class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"><i
+                                class="fas fa-chevron-left"></i></button>
+                        <input type="date" id="sleep-log-date"
+                            class="bg-transparent text-white text-xs font-bold text-center outline-none"
+                            onchange="loadSleepLogDate()">
+                        <button onclick="shiftSleepLogDate(1)"
+                            class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"><i
+                                class="fas fa-chevron-right"></i></button>
+                    </div>
+                    <div class="flex flex-col gap-3">
+                        <div class="flex items-end gap-2">
+                            <div class="flex-1">
+                                <label class="text-[10px] text-gray-500 block mb-1">起床</label>
+                                <input type="time" id="sleep-log-wake"
+                                    class="w-full bg-gray-900 border-b border-gray-600 text-white text-lg font-mono focus:border-app-accent outline-none">
+                            </div>
+                            <button onclick="saveSleepLog('wake')"
+                                class="bg-yellow-600 hover:bg-yellow-500 text-white text-[10px] font-bold px-3 py-2 rounded mb-1 whitespace-nowrap shadow-md">起床記録</button>
                         </div>
                         <div class="flex items-end gap-2">
                             <div class="flex-1">
-                                <label class="text-[10px] text-gray-500 block mb-1">今日の勉強時間</label>
-                                <div class="flex gap-2 items-center">
-                                    <input type="number" id="study-log-hours" min="0" placeholder="0"
-                                        class="w-16 bg-gray-900 border-b border-gray-600 text-white text-lg font-mono focus:border-app-accent outline-none text-right">
-                                    <span class="text-xs text-gray-400">時間</span>
-                                    <input type="number" id="study-log-minutes" min="0" max="59" placeholder="0"
-                                        class="w-16 bg-gray-900 border-b border-gray-600 text-white text-lg font-mono focus:border-app-accent outline-none text-right">
-                                    <span class="text-xs text-gray-400">分</span>
-                                </div>
+                                <label class="text-[10px] text-gray-500 block mb-1">就寝 (深夜は28時まで対応)</label>
+                                <input type="time" id="sleep-log-bed"
+                                    class="w-full bg-gray-900 border-b border-gray-600 text-white text-lg font-mono focus:border-app-accent outline-none">
                             </div>
-                            <button onclick="saveStudyLog()"
-                                class="bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold px-4 py-2 rounded mb-1 whitespace-nowrap shadow-md">保存</button>
-                        </div>
-                    </div>
-
-                    <!-- グラフエリア -->
-                    <div class="bg-app-panel rounded-lg border border-gray-700 p-2">
-                        <div class="flex justify-between items-center mb-2">
-                            <div class="flex gap-2">
-                                <button onclick="changeStudyChartRange(7)"
-                                    class="study-chart-range-btn text-[10px] px-2 py-0.5 rounded bg-gray-700 text-white transition-colors"
-                                    data-range="7">1週</button>
-                                <button onclick="changeStudyChartRange(14)"
-                                    class="study-chart-range-btn text-[10px] px-2 py-0.5 rounded text-gray-400 hover:bg-gray-800 transition-colors"
-                                    data-range="14">2週</button>
-                                <button onclick="changeStudyChartRange(30)"
-                                    class="study-chart-range-btn text-[10px] px-2 py-0.5 rounded text-gray-400 hover:bg-gray-800 transition-colors"
-                                    data-range="30">1ヶ月</button>
-                            </div>
-                            <div class="text-[9px] text-gray-500">合計: <span id="study-total-display"
-                                    class="font-bold text-white">0h 0m</span> (期間内)</div>
-                        </div>
-                        <div class="relative w-full h-48 bg-gray-900/50 rounded overflow-hidden">
-                            <canvas id="studyTimeChart"></canvas>
+                            <button onclick="saveSleepLog('bed')"
+                                class="bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-bold px-3 py-2 rounded mb-1 whitespace-nowrap shadow-md">就寝記録</button>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- アコーディオン: 生活リズム -->
-            <div class="mb-4">
-                <button onclick="toggleAccordion('acc-life-rhythm')"
-                    class="w-full flex items-center justify-between bg-gray-800 p-3 rounded-t-lg border border-gray-700 hover:bg-gray-700 transition-colors">
-                    <span class="font-bold text-sm text-white flex items-center gap-2"><i
-                            class="fas fa-bed text-purple-400"></i> 生活リズム</span>
-                    <i class="fas fa-chevron-down text-gray-400 transition-transform" id="icon-acc-life-rhythm"></i>
-                </button>
-                <div id="acc-life-rhythm"
-                    class="bg-app-panel border-x border-b border-gray-700 rounded-b-lg p-4 hidden">
-                    <!-- 入力エリア -->
-                    <div class="bg-gray-800/50 rounded-lg p-3 mb-4 border border-gray-700">
-                        <div
-                            class="flex items-center justify-between mb-4 bg-gray-900 rounded border border-gray-700 p-1">
-                            <button onclick="shiftSleepLogDate(-1)"
-                                class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"><i
-                                    class="fas fa-chevron-left"></i></button>
-                            <input type="date" id="sleep-log-date"
-                                class="bg-transparent text-white text-xs font-bold text-center outline-none"
-                                onchange="loadSleepLogDate()">
-                            <button onclick="shiftSleepLogDate(1)"
-                                class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"><i
-                                    class="fas fa-chevron-right"></i></button>
-                        </div>
-                        <div class="flex flex-col gap-3">
-                            <div class="flex items-end gap-2">
-                                <div class="flex-1">
-                                    <label class="text-[10px] text-gray-500 block mb-1">起床</label>
-                                    <input type="time" id="sleep-log-wake"
-                                        class="w-full bg-gray-900 border-b border-gray-600 text-white text-lg font-mono focus:border-app-accent outline-none">
-                                </div>
-                                <button onclick="saveSleepLog('wake')"
-                                    class="bg-yellow-600 hover:bg-yellow-500 text-white text-[10px] font-bold px-3 py-2 rounded mb-1 whitespace-nowrap shadow-md">起床記録</button>
-                            </div>
-                            <div class="flex items-end gap-2">
-                                <div class="flex-1">
-                                    <label class="text-[10px] text-gray-500 block mb-1">就寝 (深夜は28時まで対応)</label>
-                                    <input type="time" id="sleep-log-bed"
-                                        class="w-full bg-gray-900 border-b border-gray-600 text-white text-lg font-mono focus:border-app-accent outline-none">
-                                </div>
-                                <button onclick="saveSleepLog('bed')"
-                                    class="bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-bold px-3 py-2 rounded mb-1 whitespace-nowrap shadow-md">就寝記録</button>
-                            </div>
-                        </div>
+                <!-- グラフエリア -->
+                <div class="bg-app-panel rounded-lg border border-gray-700 p-2">
+                    <div class="flex justify-end gap-2 mb-2">
+                        <button onclick="changeSleepChartRange(7)"
+                            class="chart-range-btn text-[10px] px-2 py-0.5 rounded bg-gray-700 text-white transition-colors"
+                            data-range="7">1週</button>
+                        <button onclick="changeSleepChartRange(14)"
+                            class="chart-range-btn text-[10px] px-2 py-0.5 rounded text-gray-400 hover:bg-gray-800 transition-colors"
+                            data-range="14">2週</button>
+                        <button onclick="changeSleepChartRange(30)"
+                            class="chart-range-btn text-[10px] px-2 py-0.5 rounded text-gray-400 hover:bg-gray-800 transition-colors"
+                            data-range="30">1ヶ月</button>
                     </div>
-
-                    <!-- グラフエリア -->
-                    <div class="bg-app-panel rounded-lg border border-gray-700 p-2">
-                        <div class="flex justify-end gap-2 mb-2">
-                            <button onclick="changeSleepChartRange(7)"
-                                class="chart-range-btn text-[10px] px-2 py-0.5 rounded bg-gray-700 text-white transition-colors"
-                                data-range="7">1週</button>
-                            <button onclick="changeSleepChartRange(14)"
-                                class="chart-range-btn text-[10px] px-2 py-0.5 rounded text-gray-400 hover:bg-gray-800 transition-colors"
-                                data-range="14">2週</button>
-                            <button onclick="changeSleepChartRange(30)"
-                                class="chart-range-btn text-[10px] px-2 py-0.5 rounded text-gray-400 hover:bg-gray-800 transition-colors"
-                                data-range="30">1ヶ月</button>
-                        </div>
-                        <div class="relative w-full h-48 bg-gray-900/50 rounded overflow-hidden"
-                            id="sleep-chart-container">
-                            <svg id="sleep-chart-svg" width="100%" height="100%" class="w-full h-full block"></svg>
-                        </div>
-                        <div class="flex justify-center gap-4 mt-2 text-[10px]">
-                            <span class="flex items-center gap-1"><span
-                                    class="w-2 h-2 rounded-full bg-purple-400"></span> 就寝</span>
-                            <span class="flex items-center gap-1"><span
-                                    class="w-2 h-2 rounded-full bg-yellow-400"></span> 起床</span>
-                        </div>
+                    <div class="relative w-full h-48 bg-gray-900/50 rounded overflow-hidden" id="sleep-chart-container">
+                        <svg id="sleep-chart-svg" width="100%" height="100%" class="w-full h-full block"></svg>
+                    </div>
+                    <div class="flex justify-center gap-4 mt-2 text-[10px]">
+                        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-purple-400"></span>
+                            就寝</span>
+                        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-yellow-400"></span>
+                            起床</span>
                     </div>
                 </div>
             </div>
@@ -1671,7 +1659,7 @@
 
     <script>
         // --- 1. Variables & Base Data ---
-        const APP_VERSION = "v3.0"; // ★変更を加えるたびにここを書き換える
+        const APP_VERSION = "v3.1"; // ★変更を加えるたびにここを書き換える
         const ALL_SUBJECTS_ID = 'all';
         const SUBJECT_FIXED_COLORS = { chemistry: 'text-app-accent', math: 'text-green-400', physics: 'text-purple-400' };
         const COLOR_PALETTE = ['text-sky-400', 'text-emerald-400', 'text-violet-400', 'text-amber-400', 'text-rose-400', 'text-fuchsia-400', 'text-cyan-400', 'text-lime-400', 'text-indigo-400', 'text-pink-400', 'text-yellow-400', 'text-teal-400', 'text-blue-500', 'text-green-500', 'text-purple-500', 'text-orange-500', 'text-red-500', 'text-blue-300', 'text-green-300', 'text-purple-300', 'text-orange-300', 'text-rose-300', 'text-emerald-300', 'text-sky-300'];
@@ -4572,9 +4560,10 @@
                 }
             });
             updateChartColors();
+            updateChartColors();
             // アコーディオンの初期状態を設定（直近で開いていたものを記憶しても良いが、一旦デフォルトは閉じておくか、最初だけ開く）
-            // ここでは習慣チェック表だけ開いておく
-            toggleAccordion('acc-challenge');
+            // タブの初期表示
+            switchHabitTab('tab-habit-check');
         };
 
         // --- Global Data Migration ---
@@ -4589,22 +4578,32 @@
             };
         }
 
-        // --- Accordion Logic ---
-        function toggleAccordion(id) {
-            const content = document.getElementById(id);
-            const icon = document.getElementById('icon-' + id);
-            if (content.classList.contains('hidden')) {
-                content.classList.remove('hidden');
-                icon.style.transform = 'rotate(180deg)';
-                // 開いたタイミングでグラフなどの再描画が必要なら呼ぶ
-                if (id === 'acc-study-time') {
-                    renderStudyChart();
-                } else if (id === 'acc-life-rhythm') {
-                    renderSleepChart();
-                }
-            } else {
-                content.classList.add('hidden');
-                icon.style.transform = 'rotate(0deg)';
+        // --- Tab Logic ---
+        function switchHabitTab(tabId) {
+            // すべてのタブコンテンツを非表示
+            ['tab-habit-check', 'tab-study-time', 'tab-life-rhythm'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+            // すべてのタブボタンのスタイルを非アクティブ（グレー）に
+            ['btn-tab-habit-check', 'btn-tab-study-time', 'btn-tab-life-rhythm'].forEach(id => {
+                const btn = document.getElementById(id);
+                btn.classList.remove('bg-gray-700', 'text-white', 'shadow');
+                btn.classList.add('text-gray-400');
+            });
+
+            // 選択されたタブを表示
+            document.getElementById(tabId).classList.remove('hidden');
+
+            // 選択されたボタンをアクティブ（背景色・白文字）に
+            const activeBtn = document.getElementById('btn-' + tabId);
+            activeBtn.classList.remove('text-gray-400');
+            activeBtn.classList.add('bg-gray-700', 'text-white', 'shadow');
+
+            // グラフ描画などが必要な場合
+            if (tabId === 'tab-study-time') {
+                renderStudyChart();
+            } else if (tabId === 'tab-life-rhythm') {
+                renderSleepChart();
             }
         }
 
