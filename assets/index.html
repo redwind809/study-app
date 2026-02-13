@@ -941,14 +941,19 @@
                                     class="w-16 bg-gray-900 border-b border-gray-600 text-white text-lg font-mono focus:border-app-accent outline-none text-right appearance-none">
                                 </select>
                                 <span class="text-xs text-gray-400">時間</span>
-                                <div id="study-log-minutes-container"
-                                    style="position:relative; width:4rem; height:34px; background:#111827; border-bottom:1px solid #4b5563; border-radius:0.25rem; overflow:hidden; user-select:none;">
-                                    <div id="study-log-minutes-scroll"
-                                        style="position:absolute; inset:0; overflow-y:scroll; scroll-snap-type:y mandatory;"
-                                        class="scrollbar-hide">
-                                    </div>
+                                <div class="flex items-center gap-0.5">
+                                    <button onclick="stepMinutes(-1)"
+                                        class="w-6 h-7 flex items-center justify-center text-gray-400 hover:text-white bg-gray-800 rounded-l border border-gray-600 active:bg-gray-600">
+                                        <i class="fas fa-minus text-[8px]"></i>
+                                    </button>
+                                    <select id="study-log-minutes"
+                                        class="w-12 bg-gray-900 border-y border-gray-600 text-white text-lg font-mono focus:border-app-accent outline-none text-center appearance-none">
+                                    </select>
+                                    <button onclick="stepMinutes(1)"
+                                        class="w-6 h-7 flex items-center justify-center text-gray-400 hover:text-white bg-gray-800 rounded-r border border-gray-600 active:bg-gray-600">
+                                        <i class="fas fa-plus text-[8px]"></i>
+                                    </button>
                                 </div>
-                                <input type="hidden" id="study-log-minutes" value="0">
                                 <span class="text-xs text-gray-400">分</span>
                             </div>
                         </div>
@@ -1673,7 +1678,7 @@
 
     <script>
         // --- 1. Variables & Base Data ---
-        const APP_VERSION = "v3.7"; // ★変更を加えるたびにここを書き換える
+        const APP_VERSION = "v3.8"; // ★変更を加えるたびにここを書き換える
         const ALL_SUBJECTS_ID = 'all';
         const SUBJECT_FIXED_COLORS = { chemistry: 'text-app-accent', math: 'text-green-400', physics: 'text-purple-400' };
         const COLOR_PALETTE = ['text-sky-400', 'text-emerald-400', 'text-violet-400', 'text-amber-400', 'text-rose-400', 'text-fuchsia-400', 'text-cyan-400', 'text-lime-400', 'text-indigo-400', 'text-pink-400', 'text-yellow-400', 'text-teal-400', 'text-blue-500', 'text-green-500', 'text-purple-500', 'text-orange-500', 'text-red-500', 'text-blue-300', 'text-green-300', 'text-purple-300', 'text-orange-300', 'text-rose-300', 'text-emerald-300', 'text-sky-300'];
@@ -4665,55 +4670,32 @@
 
         function initStudyTimeSelects() {
             const hourSelect = document.getElementById('study-log-hours');
-            const minuteScroll = document.getElementById('study-log-minutes-scroll');
-            const minuteInput = document.getElementById('study-log-minutes');
-
-            if (!hourSelect || !minuteScroll || !minuteInput) return;
-
+            const minuteSelect = document.getElementById('study-log-minutes');
             hourSelect.innerHTML = '';
-            minuteScroll.innerHTML = '';
+            minuteSelect.innerHTML = '';
 
-            // Hours (Standard Select)
             for (let i = 0; i <= 24; i++) {
                 const opt = document.createElement('option');
                 opt.value = i;
                 opt.textContent = i;
                 hourSelect.appendChild(opt);
             }
-
-            // Minutes (Infinite Scroll - 3 sets of 0-59)
-            const ITEM_H = 34; // matches h-[34px] in HTML container
-            const createItem = (val) => {
-                const div = document.createElement('div');
-                div.style.cssText = 'height:34px; display:flex; align-items:center; justify-content:center; font-size:1.125rem; font-family:ui-monospace,monospace; color:white; scroll-snap-align:center; flex-shrink:0; width:100%;';
-                div.textContent = String(val).padStart(2, '0');
-                div.dataset.value = val;
-                return div;
-            };
-
-            for (let set = 0; set < 3; set++) {
-                for (let i = 0; i < 60; i++) {
-                    minuteScroll.appendChild(createItem(i));
-                }
+            for (let i = 0; i < 60; i++) {
+                const opt = document.createElement('option');
+                opt.value = i;
+                opt.textContent = String(i).padStart(2, '0');
+                minuteSelect.appendChild(opt);
             }
-
-            const singleSetH = ITEM_H * 60;
-            minuteScroll.scrollTop = singleSetH; // start in center set
-
-            minuteScroll.addEventListener('scroll', () => {
-                const s = minuteScroll.scrollTop;
-                // wrap around
-                if (s < ITEM_H * 10) {
-                    minuteScroll.scrollTop = s + singleSetH;
-                } else if (s > singleSetH * 2 - ITEM_H * 10) {
-                    minuteScroll.scrollTop = s - singleSetH;
-                }
-                // update hidden input
-                const idx = Math.round(minuteScroll.scrollTop / ITEM_H);
-                minuteInput.value = idx % 60;
-            });
-
             loadStudyLogDate();
+        }
+
+        // ▲▼ ボタンで分をループ（59→0→59）
+        function stepMinutes(diff) {
+            const sel = document.getElementById('study-log-minutes');
+            let val = parseInt(sel.value) + diff;
+            if (val < 0) val = 59;
+            if (val > 59) val = 0;
+            sel.value = val;
         }
 
         function loadStudyLogDate() {
@@ -4735,14 +4717,7 @@
             const minutes = log.time % 60;
 
             document.getElementById('study-log-hours').value = hours;
-
-            const minuteScroll = document.getElementById('study-log-minutes-scroll');
-            const minuteInput = document.getElementById('study-log-minutes');
-            if (minuteInput) minuteInput.value = minutes;
-            if (minuteScroll) {
-                const ITEM_H = 34;
-                minuteScroll.scrollTop = (ITEM_H * 60) + (minutes * ITEM_H);
-            }
+            document.getElementById('study-log-minutes').value = minutes;
         }
 
         function shiftStudyLogDate(diff) {
