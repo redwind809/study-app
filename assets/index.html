@@ -881,85 +881,159 @@
 
         <div id="challenge-screen" class="tab-content p-4 pb-32">
             <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                <i class="fas fa-fire text-challenge-gold"></i> 習慣チェック表
+                <i class="fas fa-fire text-challenge-gold"></i> 習慣・記録
             </h2>
 
-            <div class="bg-app-panel rounded-xl border border-gray-700 overflow-hidden shadow-lg">
-                <div class="overflow-x-auto">
-                    <div id="challenge-matrix-container" class="min-w-[320px]">
+            <!-- アコーディオン: 習慣チェック表 -->
+            <div class="mb-4">
+                <button onclick="toggleAccordion('acc-challenge')"
+                    class="w-full flex items-center justify-between bg-gray-800 p-3 rounded-t-lg border border-gray-700 hover:bg-gray-700 transition-colors">
+                    <span class="font-bold text-sm text-white flex items-center gap-2"><i
+                            class="fas fa-check-square text-challenge-gold"></i> 習慣チェック表</span>
+                    <i class="fas fa-chevron-down text-gray-400 transition-transform" id="icon-acc-challenge"></i>
+                </button>
+                <div id="acc-challenge" class="bg-app-panel border-x border-b border-gray-700 rounded-b-lg p-4 hidden">
+                    <div class="overflow-x-auto mb-4">
+                        <div id="challenge-matrix-container" class="min-w-[320px]"></div>
+                    </div>
+                    <h3 class="text-xs font-bold text-gray-500 mb-2 uppercase">継続ステータス</h3>
+                    <div id="challenge-stats-grid" class="grid grid-cols-2 gap-3"></div>
+                </div>
+            </div>
+
+            <!-- アコーディオン: 勉強時間 -->
+            <div class="mb-4">
+                <button onclick="toggleAccordion('acc-study-time')"
+                    class="w-full flex items-center justify-between bg-gray-800 p-3 rounded-t-lg border border-gray-700 hover:bg-gray-700 transition-colors">
+                    <span class="font-bold text-sm text-white flex items-center gap-2"><i
+                            class="fas fa-stopwatch text-blue-400"></i> 勉強時間記録</span>
+                    <i class="fas fa-chevron-down text-gray-400 transition-transform" id="icon-acc-study-time"></i>
+                </button>
+                <div id="acc-study-time" class="bg-app-panel border-x border-b border-gray-700 rounded-b-lg p-4 hidden">
+                    <!-- 入力エリア -->
+                    <div class="bg-gray-800/50 rounded-lg p-3 mb-4 border border-gray-700">
+                        <div
+                            class="flex items-center justify-between mb-4 bg-gray-900 rounded border border-gray-700 p-1">
+                            <button onclick="shiftStudyLogDate(-1)"
+                                class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"><i
+                                    class="fas fa-chevron-left"></i></button>
+                            <input type="date" id="study-log-date"
+                                class="bg-transparent text-white text-xs font-bold text-center outline-none"
+                                onchange="loadStudyLogDate()">
+                            <button onclick="shiftStudyLogDate(1)"
+                                class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"><i
+                                    class="fas fa-chevron-right"></i></button>
+                        </div>
+                        <div class="flex items-end gap-2">
+                            <div class="flex-1">
+                                <label class="text-[10px] text-gray-500 block mb-1">今日の勉強時間</label>
+                                <div class="flex gap-2 items-center">
+                                    <input type="number" id="study-log-hours" min="0" placeholder="0"
+                                        class="w-16 bg-gray-900 border-b border-gray-600 text-white text-lg font-mono focus:border-app-accent outline-none text-right">
+                                    <span class="text-xs text-gray-400">時間</span>
+                                    <input type="number" id="study-log-minutes" min="0" max="59" placeholder="0"
+                                        class="w-16 bg-gray-900 border-b border-gray-600 text-white text-lg font-mono focus:border-app-accent outline-none text-right">
+                                    <span class="text-xs text-gray-400">分</span>
+                                </div>
+                            </div>
+                            <button onclick="saveStudyLog()"
+                                class="bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold px-4 py-2 rounded mb-1 whitespace-nowrap shadow-md">保存</button>
+                        </div>
+                    </div>
+
+                    <!-- グラフエリア -->
+                    <div class="bg-app-panel rounded-lg border border-gray-700 p-2">
+                        <div class="flex justify-between items-center mb-2">
+                            <div class="flex gap-2">
+                                <button onclick="changeStudyChartRange(7)"
+                                    class="study-chart-range-btn text-[10px] px-2 py-0.5 rounded bg-gray-700 text-white transition-colors"
+                                    data-range="7">1週</button>
+                                <button onclick="changeStudyChartRange(14)"
+                                    class="study-chart-range-btn text-[10px] px-2 py-0.5 rounded text-gray-400 hover:bg-gray-800 transition-colors"
+                                    data-range="14">2週</button>
+                                <button onclick="changeStudyChartRange(30)"
+                                    class="study-chart-range-btn text-[10px] px-2 py-0.5 rounded text-gray-400 hover:bg-gray-800 transition-colors"
+                                    data-range="30">1ヶ月</button>
+                            </div>
+                            <div class="text-[9px] text-gray-500">合計: <span id="study-total-display"
+                                    class="font-bold text-white">0h 0m</span> (期間内)</div>
+                        </div>
+                        <div class="relative w-full h-48 bg-gray-900/50 rounded overflow-hidden">
+                            <canvas id="studyTimeChart"></canvas>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <div class="mt-6">
-                <h3 class="text-xs font-bold text-gray-500 mb-3 uppercase">継続ステータス</h3>
-                <div id="challenge-stats-grid" class="grid grid-cols-2 gap-3">
-                </div>
-            </div>
-
-            <!-- 生活リズム表 -->
-            <div class="mt-8 pt-6 border-t border-gray-700">
-                <h3 class="text-sm font-bold text-gray-300 mb-4 flex items-center gap-2">
-                    <i class="fas fa-bed text-purple-400"></i> 生活リズム
-                </h3>
-
-                <!-- 入力エリア -->
-                <div class="bg-gray-800/50 rounded-lg p-3 mb-4 border border-gray-700">
-                    <div class="flex items-center justify-between mb-4 bg-gray-900 rounded border border-gray-700 p-1">
-                        <button onclick="shiftSleepLogDate(-1)"
-                            class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"><i
-                                class="fas fa-chevron-left"></i></button>
-                        <input type="date" id="sleep-log-date"
-                            class="bg-transparent text-white text-xs font-bold text-center outline-none"
-                            onchange="loadSleepLogDate()">
-                        <button onclick="shiftSleepLogDate(1)"
-                            class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"><i
-                                class="fas fa-chevron-right"></i></button>
-                    </div>
-
-                    <div class="flex flex-col gap-3">
-                        <div class="flex items-end gap-2">
-                            <div class="flex-1">
-                                <label class="text-[10px] text-gray-500 block mb-1">起床</label>
-                                <input type="time" id="sleep-log-wake"
-                                    class="w-full bg-gray-900 border-b border-gray-600 text-white text-lg font-mono focus:border-app-accent outline-none">
-                            </div>
-                            <button onclick="saveSleepLog('wake')"
-                                class="bg-yellow-600 hover:bg-yellow-500 text-white text-[10px] font-bold px-3 py-2 rounded mb-1 whitespace-nowrap">起床記録</button>
+            <!-- アコーディオン: 生活リズム -->
+            <div class="mb-4">
+                <button onclick="toggleAccordion('acc-life-rhythm')"
+                    class="w-full flex items-center justify-between bg-gray-800 p-3 rounded-t-lg border border-gray-700 hover:bg-gray-700 transition-colors">
+                    <span class="font-bold text-sm text-white flex items-center gap-2"><i
+                            class="fas fa-bed text-purple-400"></i> 生活リズム</span>
+                    <i class="fas fa-chevron-down text-gray-400 transition-transform" id="icon-acc-life-rhythm"></i>
+                </button>
+                <div id="acc-life-rhythm"
+                    class="bg-app-panel border-x border-b border-gray-700 rounded-b-lg p-4 hidden">
+                    <!-- 入力エリア -->
+                    <div class="bg-gray-800/50 rounded-lg p-3 mb-4 border border-gray-700">
+                        <div
+                            class="flex items-center justify-between mb-4 bg-gray-900 rounded border border-gray-700 p-1">
+                            <button onclick="shiftSleepLogDate(-1)"
+                                class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"><i
+                                    class="fas fa-chevron-left"></i></button>
+                            <input type="date" id="sleep-log-date"
+                                class="bg-transparent text-white text-xs font-bold text-center outline-none"
+                                onchange="loadSleepLogDate()">
+                            <button onclick="shiftSleepLogDate(1)"
+                                class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"><i
+                                    class="fas fa-chevron-right"></i></button>
                         </div>
-                        <div class="flex items-end gap-2">
-                            <div class="flex-1">
-                                <label class="text-[10px] text-gray-500 block mb-1">就寝 (深夜は28時まで対応)</label>
-                                <input type="time" id="sleep-log-bed"
-                                    class="w-full bg-gray-900 border-b border-gray-600 text-white text-lg font-mono focus:border-app-accent outline-none">
+                        <div class="flex flex-col gap-3">
+                            <div class="flex items-end gap-2">
+                                <div class="flex-1">
+                                    <label class="text-[10px] text-gray-500 block mb-1">起床</label>
+                                    <input type="time" id="sleep-log-wake"
+                                        class="w-full bg-gray-900 border-b border-gray-600 text-white text-lg font-mono focus:border-app-accent outline-none">
+                                </div>
+                                <button onclick="saveSleepLog('wake')"
+                                    class="bg-yellow-600 hover:bg-yellow-500 text-white text-[10px] font-bold px-3 py-2 rounded mb-1 whitespace-nowrap shadow-md">起床記録</button>
                             </div>
-                            <button onclick="saveSleepLog('bed')"
-                                class="bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-bold px-3 py-2 rounded mb-1 whitespace-nowrap">就寝記録</button>
+                            <div class="flex items-end gap-2">
+                                <div class="flex-1">
+                                    <label class="text-[10px] text-gray-500 block mb-1">就寝 (深夜は28時まで対応)</label>
+                                    <input type="time" id="sleep-log-bed"
+                                        class="w-full bg-gray-900 border-b border-gray-600 text-white text-lg font-mono focus:border-app-accent outline-none">
+                                </div>
+                                <button onclick="saveSleepLog('bed')"
+                                    class="bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-bold px-3 py-2 rounded mb-1 whitespace-nowrap shadow-md">就寝記録</button>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- グラフエリア -->
-                <div class="bg-app-panel rounded-lg border border-gray-700 p-2">
-                    <div class="flex justify-end gap-2 mb-2">
-                        <button onclick="changeSleepChartRange(7)"
-                            class="chart-range-btn text-[10px] px-2 py-0.5 rounded bg-gray-700 text-white transition-colors"
-                            data-range="7">1週</button>
-                        <button onclick="changeSleepChartRange(14)"
-                            class="chart-range-btn text-[10px] px-2 py-0.5 rounded text-gray-400 hover:bg-gray-800 transition-colors"
-                            data-range="14">2週</button>
-                        <button onclick="changeSleepChartRange(30)"
-                            class="chart-range-btn text-[10px] px-2 py-0.5 rounded text-gray-400 hover:bg-gray-800 transition-colors"
-                            data-range="30">1ヶ月</button>
-                    </div>
-                    <div class="relative w-full h-48 bg-gray-900/50 rounded overflow-hidden" id="sleep-chart-container">
-                        <svg id="sleep-chart-svg" width="100%" height="100%" class="w-full h-full block"></svg>
-                    </div>
-                    <div class="flex justify-center gap-4 mt-2 text-[10px]">
-                        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-purple-400"></span>
-                            就寝</span>
-                        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-yellow-400"></span>
-                            起床</span>
+                    <!-- グラフエリア -->
+                    <div class="bg-app-panel rounded-lg border border-gray-700 p-2">
+                        <div class="flex justify-end gap-2 mb-2">
+                            <button onclick="changeSleepChartRange(7)"
+                                class="chart-range-btn text-[10px] px-2 py-0.5 rounded bg-gray-700 text-white transition-colors"
+                                data-range="7">1週</button>
+                            <button onclick="changeSleepChartRange(14)"
+                                class="chart-range-btn text-[10px] px-2 py-0.5 rounded text-gray-400 hover:bg-gray-800 transition-colors"
+                                data-range="14">2週</button>
+                            <button onclick="changeSleepChartRange(30)"
+                                class="chart-range-btn text-[10px] px-2 py-0.5 rounded text-gray-400 hover:bg-gray-800 transition-colors"
+                                data-range="30">1ヶ月</button>
+                        </div>
+                        <div class="relative w-full h-48 bg-gray-900/50 rounded overflow-hidden"
+                            id="sleep-chart-container">
+                            <svg id="sleep-chart-svg" width="100%" height="100%" class="w-full h-full block"></svg>
+                        </div>
+                        <div class="flex justify-center gap-4 mt-2 text-[10px]">
+                            <span class="flex items-center gap-1"><span
+                                    class="w-2 h-2 rounded-full bg-purple-400"></span> 就寝</span>
+                            <span class="flex items-center gap-1"><span
+                                    class="w-2 h-2 rounded-full bg-yellow-400"></span> 起床</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1233,38 +1307,48 @@
 
                         <div class="pt-2 border-t border-gray-700 mt-2">
                             <label class="text-[10px] text-gray-500 block mb-1">自動チェック連携 (生活リズム)</label>
-                            <div class="flex gap-2 mb-2">
-                                <select id="edit-challenge-auto-type" onchange="toggleAutoTimeInput()"
-                                    class="bg-gray-900 border border-gray-700 text-white text-xs rounded px-2 py-2 flex-1 outline-none">
-                                    <option value="">連携なし</option>
-                                    <option value="waketime">起床時間 (これより早いと達成)</option>
-                                    <option value="bedtime">就寝時間 (これより早いと達成)</option>
+                            <div class="mb-4">
+                                <label class="text-xs text-gray-500 block mb-1">自動チェック条件 (オプション)</label>
+                                <select id="edit-challenge-auto-type"
+                                    class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white text-xs mb-2"
+                                    onchange="toggleAutoTimeInput()">
+                                    <option value="">なし (手動チェック)</option>
+                                    <option value="waketime">起床時間 (これより早い)</option>
+                                    <option value="bedtime">就寝時間 (これより早い)</option>
+                                    <option value="study_time">勉強時間 (これ以上)</option> <!-- ★追加 -->
                                 </select>
-                            </div>
-                            <div id="auto-time-input-area" class="hidden">
-                                <label class="text-[10px] text-gray-500 block mb-1">目標時間</label>
-                                <input type="time" id="edit-challenge-target-time"
-                                    class="w-full bg-gray-900 border border-gray-700 text-white text-xs rounded px-2 py-2 outline-none">
-                            </div>
-                        </div>
 
-                        <div class="pt-2">
-                            <button onclick="saveChallengeSettings()"
-                                class="w-full bg-challenge-gold text-app-dark text-sm font-bold py-2.5 rounded hover:bg-yellow-400 transition-colors shadow-md">
-                                設定を保存
-                            </button>
+                                <div id="auto-time-input-area" class="hidden">
+                                    <label class="text-xs text-gray-500 block mb-1">目標値 (時間または分)</label>
+                                    <div class="flex items-center gap-2">
+                                        <input type="text" id="edit-challenge-target-time"
+                                            class="flex-1 bg-gray-900 border border-gray-700 text-white text-xs rounded p-2"
+                                            placeholder="07:00 または 60">
+                                        <span class="text-[10px] text-gray-400" id="auto-time-unit-label"></span>
+                                    </div>
+                                    <p class="text-[10px] text-gray-500 mt-1" id="auto-time-help-text">
+                                        ※起床・就寝は「HH:MM」、勉強時間は「分」で入力
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="pt-2">
+                                <button onclick="saveChallengeSettings()"
+                                    class="w-full bg-challenge-gold text-app-dark text-sm font-bold py-2.5 rounded hover:bg-yellow-400 transition-colors shadow-md">
+                                    設定を保存
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-            <div id="gemini-import-area" class="mb-6 border-t border-gray-700 pt-6">
-                <h3 class="text-xs font-bold text-gray-400 mb-2 uppercase flex items-center gap-2"><i
-                        class="fas fa-robot text-purple-400"></i> AIで科目追加 (Gemini)</h3>
-                <div class="bg-gray-800/50 p-3 rounded border border-gray-700 mb-3">
-                    <div class="relative">
-                        <textarea id="gemini-prompt-template"
-                            class="w-full bg-gray-900 border border-gray-700 text-gray-300 text-[10px] rounded p-2 h-20"
-                            readonly>「[科目名]」という科目の学習進捗管理用のデータをJSON形式で作成してください。
+                <div id="gemini-import-area" class="mb-6 border-t border-gray-700 pt-6">
+                    <h3 class="text-xs font-bold text-gray-400 mb-2 uppercase flex items-center gap-2"><i
+                            class="fas fa-robot text-purple-400"></i> AIで科目追加 (Gemini)</h3>
+                    <div class="bg-gray-800/50 p-3 rounded border border-gray-700 mb-3">
+                        <div class="relative">
+                            <textarea id="gemini-prompt-template"
+                                class="w-full bg-gray-900 border border-gray-700 text-gray-300 text-[10px] rounded p-2 h-20"
+                                readonly>「[科目名]」という科目の学習進捗管理用のデータをJSON形式で作成してください。
 形式:
 {
   "name": "[科目名]",
@@ -1274,148 +1358,150 @@
   ]
 }
 ※syllabusの各要素のcategoryとtitleは日本語で作成してください。</textarea>
-                        <button onclick="copyPrompt()"
-                            class="absolute top-1 right-1 bg-gray-700 hover:bg-gray-600 text-white text-[10px] px-2 py-1 rounded">コピー</button>
-                    </div>
-                </div>
-                <div class="flex gap-2">
-                    <input type="text" id="gemini-json-input" placeholder='Geminiの出力JSONをここに貼り付け'
-                        class="flex-1 bg-gray-900 border border-gray-700 text-white text-xs rounded px-3 py-2">
-                    <button onclick="importFromGemini()"
-                        class="bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold px-4 py-2 rounded">取り込み</button>
-                </div>
-            </div>
-
-            <div class="mt-8 border-t border-gray-700 pt-6">
-                <h3 class="text-sm font-bold text-gray-400 mb-4 flex items-center gap-2">
-                    <i class="fas fa-bullhorn text-orange-400"></i> 学習ティッカー設定
-                </h3>
-
-                <div class="bg-gray-800/50 rounded border border-gray-700 p-4 mb-4">
-                    <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
-                        <label class="text-xs font-bold text-gray-300">ティッカー表示</label>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" id="ticker-enabled-toggle" class="sr-only peer"
-                                onchange="toggleTickerEnabled()">
-                            <div
-                                class="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600">
-                            </div>
-                        </label>
-                    </div>
-
-                    <div class="flex justify-between items-center mb-2">
-                        <label class="text-xs font-bold text-gray-300">カテゴリ一覧</label>
-                        <div class="flex gap-2">
-                            <button onclick="openBulkWeightEditor()"
-                                class="text-[10px] text-sky-400 hover:text-sky-300 underline">重み一括編集</button>
-                            <button onclick="resetTickerData()"
-                                class="text-[10px] text-red-400 hover:text-red-300 underline">初期化</button>
+                            <button onclick="copyPrompt()"
+                                class="absolute top-1 right-1 bg-gray-700 hover:bg-gray-600 text-white text-[10px] px-2 py-1 rounded">コピー</button>
                         </div>
                     </div>
-                    <div id="ticker-category-list" class="space-y-2 mb-4"></div>
-                    <button onclick="addNewTickerCategory()"
-                        class="w-full py-2 bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold rounded border border-gray-600 mb-4"><i
-                            class="fas fa-plus"></i> カテゴリを追加</button>
-
-                    <label class="text-xs font-bold text-gray-300 block mb-2">データ一括インポート (JSON)</label>
-                    <div class="relative mb-2">
-                        <textarea id="ticker-json-input"
-                            class="w-full bg-gray-900 border border-gray-700 text-gray-300 text-[10px] rounded p-2 h-20 font-mono"
-                            placeholder='{"categories": [...], "messages": [...]}'></textarea>
-                        <button onclick="copyTickerPrompt()"
-                            class="absolute top-1 right-1 bg-gray-700 hover:bg-gray-600 text-white text-[10px] px-2 py-1 rounded flex items-center gap-1">
-                            コピー
-                        </button>
-                    </div>
-                    <div class="flex justify-end">
-                        <button onclick="importTickerData()"
-                            class="bg-app-accent text-app-dark text-xs font-bold px-4 py-2 rounded hover:bg-sky-300">
-                            追加インポート
-                        </button>
-                    </div>
-                </div>
-                <div class="text-[10px] text-gray-500 text-right">
-                    登録メッセージ数: <span id="ticker-msg-count">0</span> 件
-                </div>
-            </div>
-
-            <div id="ticker-category-editor"
-                class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] hidden flex items-center justify-center p-4">
-                <div
-                    class="bg-app-panel border border-gray-600 rounded-lg w-full max-w-md p-5 shadow-2xl flex flex-col max-h-[90vh]">
-                    <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
-                        <h3 class="text-lg font-bold text-white">カテゴリ編集</h3>
-                        <button onclick="closeTickerCategoryEditor()" class="text-gray-400 hover:text-white"><i
-                                class="fas fa-times text-xl"></i></button>
-                    </div>
-
-                    <div class="overflow-y-auto flex-1 pr-1 custom-scrollbar">
-                        <div class="space-y-4 mb-6">
-                            <div>
-                                <label class="text-[10px] text-gray-500 block mb-1">カテゴリ名</label>
-                                <input type="text" id="edit-ticker-cat-name"
-                                    class="w-full bg-gray-900 border border-gray-700 text-white text-xs rounded px-3 py-2">
-                            </div>
-
-                            <div>
-                                <label class="text-[10px] text-gray-500 block mb-2">カラー</label>
-                                <div id="edit-ticker-cat-color-palette" class="grid grid-cols-8 gap-2">
-                                </div>
-                                <input type="hidden" id="edit-ticker-cat-color-value">
-                            </div>
-
-                            <div>
-                                <label class="text-[10px] text-gray-500 block mb-1">出現重み: <span
-                                        id="edit-ticker-cat-weight-value" class="font-bold text-white">10</span></label>
-                                <input type="range" id="edit-ticker-cat-weight" min="1" max="20"
-                                    class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
-                            </div>
-
-                            <button onclick="saveTickerCategoryInfo()"
-                                class="w-full bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 rounded border border-gray-600">設定を更新</button>
-                        </div>
-
-                        <div class="border-t border-gray-700 pt-4">
-                            <label class="text-xs font-bold text-gray-300 block mb-2">メッセージリスト</label>
-                            <div class="flex gap-2 mb-2">
-                                <input type="text" id="new-ticker-msg-input" placeholder="新しいメッセージ"
-                                    class="flex-1 bg-gray-900 border border-gray-700 text-white text-xs rounded px-3 py-2">
-                                <button onclick="addTickerMessageInEditor()"
-                                    class="bg-app-accent text-app-dark text-xs font-bold px-3 py-2 rounded hover:bg-sky-300">追加</button>
-                            </div>
-                            <div id="editor-ticker-msg-list"
-                                class="space-y-1 bg-gray-900 p-2 rounded border border-gray-700 min-h-[150px]"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ティッカー重み一括編集モーダル -->
-            <div id="ticker-bulk-weight-editor"
-                class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[210] hidden flex items-center justify-center p-4">
-                <div
-                    class="bg-app-panel border border-gray-600 rounded-lg w-full max-w-md p-5 shadow-2xl flex flex-col max-h-[90vh]">
-                    <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
-                        <h3 class="text-lg font-bold text-white">重み一括編集</h3>
-                        <button onclick="closeBulkWeightEditor()" class="text-gray-400 hover:text-white"><i
-                                class="fas fa-times text-xl"></i></button>
-                    </div>
-
-                    <div id="bulk-weight-list" class="overflow-y-auto flex-1 pr-1 custom-scrollbar space-y-3 mb-4">
-                        <!-- ここにスライダーが動的に生成される -->
-                    </div>
-
                     <div class="flex gap-2">
-                        <button onclick="closeBulkWeightEditor()"
-                            class="flex-1 bg-gray-800 text-gray-300 text-xs font-bold py-2.5 rounded border border-gray-600 hover:bg-gray-700">キャンセル</button>
-                        <button onclick="saveBulkWeights()"
-                            class="flex-1 bg-app-accent text-app-dark text-xs font-bold py-2.5 rounded hover:bg-sky-300 shadow-md">
-                            保存する
-                        </button>
+                        <input type="text" id="gemini-json-input" placeholder='Geminiの出力JSONをここに貼り付け'
+                            class="flex-1 bg-gray-900 border border-gray-700 text-white text-xs rounded px-3 py-2">
+                        <button onclick="importFromGemini()"
+                            class="bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold px-4 py-2 rounded">取り込み</button>
+                    </div>
+                </div>
+
+                <div class="mt-8 border-t border-gray-700 pt-6">
+                    <h3 class="text-sm font-bold text-gray-400 mb-4 flex items-center gap-2">
+                        <i class="fas fa-bullhorn text-orange-400"></i> 学習ティッカー設定
+                    </h3>
+
+                    <div class="bg-gray-800/50 rounded border border-gray-700 p-4 mb-4">
+                        <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
+                            <label class="text-xs font-bold text-gray-300">ティッカー表示</label>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="ticker-enabled-toggle" class="sr-only peer"
+                                    onchange="toggleTickerEnabled()">
+                                <div
+                                    class="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600">
+                                </div>
+                            </label>
+                        </div>
+
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="text-xs font-bold text-gray-300">カテゴリ一覧</label>
+                            <div class="flex gap-2">
+                                <button onclick="openBulkWeightEditor()"
+                                    class="text-[10px] text-sky-400 hover:text-sky-300 underline">重み一括編集</button>
+                                <button onclick="resetTickerData()"
+                                    class="text-[10px] text-red-400 hover:text-red-300 underline">初期化</button>
+                            </div>
+                        </div>
+                        <div id="ticker-category-list" class="space-y-2 mb-4"></div>
+                        <button onclick="addNewTickerCategory()"
+                            class="w-full py-2 bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold rounded border border-gray-600 mb-4"><i
+                                class="fas fa-plus"></i> カテゴリを追加</button>
+
+                        <label class="text-xs font-bold text-gray-300 block mb-2">データ一括インポート (JSON)</label>
+                        <div class="relative mb-2">
+                            <textarea id="ticker-json-input"
+                                class="w-full bg-gray-900 border border-gray-700 text-gray-300 text-[10px] rounded p-2 h-20 font-mono"
+                                placeholder='{"categories": [...], "messages": [...]}'></textarea>
+                            <button onclick="copyTickerPrompt()"
+                                class="absolute top-1 right-1 bg-gray-700 hover:bg-gray-600 text-white text-[10px] px-2 py-1 rounded flex items-center gap-1">
+                                コピー
+                            </button>
+                        </div>
+                        <div class="flex justify-end">
+                            <button onclick="importTickerData()"
+                                class="bg-app-accent text-app-dark text-xs font-bold px-4 py-2 rounded hover:bg-sky-300">
+                                追加インポート
+                            </button>
+                        </div>
+                    </div>
+                    <div class="text-[10px] text-gray-500 text-right">
+                        登録メッセージ数: <span id="ticker-msg-count">0</span> 件
+                    </div>
+                </div>
+
+                <div id="ticker-category-editor"
+                    class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] hidden flex items-center justify-center p-4">
+                    <div
+                        class="bg-app-panel border border-gray-600 rounded-lg w-full max-w-md p-5 shadow-2xl flex flex-col max-h-[90vh]">
+                        <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
+                            <h3 class="text-lg font-bold text-white">カテゴリ編集</h3>
+                            <button onclick="closeTickerCategoryEditor()" class="text-gray-400 hover:text-white"><i
+                                    class="fas fa-times text-xl"></i></button>
+                        </div>
+
+                        <div class="overflow-y-auto flex-1 pr-1 custom-scrollbar">
+                            <div class="space-y-4 mb-6">
+                                <div>
+                                    <label class="text-[10px] text-gray-500 block mb-1">カテゴリ名</label>
+                                    <input type="text" id="edit-ticker-cat-name"
+                                        class="w-full bg-gray-900 border border-gray-700 text-white text-xs rounded px-3 py-2">
+                                </div>
+
+                                <div>
+                                    <label class="text-[10px] text-gray-500 block mb-2">カラー</label>
+                                    <div id="edit-ticker-cat-color-palette" class="grid grid-cols-8 gap-2">
+                                    </div>
+                                    <input type="hidden" id="edit-ticker-cat-color-value">
+                                </div>
+
+                                <div>
+                                    <label class="text-[10px] text-gray-500 block mb-1">出現重み: <span
+                                            id="edit-ticker-cat-weight-value"
+                                            class="font-bold text-white">10</span></label>
+                                    <input type="range" id="edit-ticker-cat-weight" min="1" max="20"
+                                        class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                                </div>
+
+                                <button onclick="saveTickerCategoryInfo()"
+                                    class="w-full bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 rounded border border-gray-600">設定を更新</button>
+                            </div>
+
+                            <div class="border-t border-gray-700 pt-4">
+                                <label class="text-xs font-bold text-gray-300 block mb-2">メッセージリスト</label>
+                                <div class="flex gap-2 mb-2">
+                                    <input type="text" id="new-ticker-msg-input" placeholder="新しいメッセージ"
+                                        class="flex-1 bg-gray-900 border border-gray-700 text-white text-xs rounded px-3 py-2">
+                                    <button onclick="addTickerMessageInEditor()"
+                                        class="bg-app-accent text-app-dark text-xs font-bold px-3 py-2 rounded hover:bg-sky-300">追加</button>
+                                </div>
+                                <div id="editor-ticker-msg-list"
+                                    class="space-y-1 bg-gray-900 p-2 rounded border border-gray-700 min-h-[150px]">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ティッカー重み一括編集モーダル -->
+                <div id="ticker-bulk-weight-editor"
+                    class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[210] hidden flex items-center justify-center p-4">
+                    <div
+                        class="bg-app-panel border border-gray-600 rounded-lg w-full max-w-md p-5 shadow-2xl flex flex-col max-h-[90vh]">
+                        <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
+                            <h3 class="text-lg font-bold text-white">重み一括編集</h3>
+                            <button onclick="closeBulkWeightEditor()" class="text-gray-400 hover:text-white"><i
+                                    class="fas fa-times text-xl"></i></button>
+                        </div>
+
+                        <div id="bulk-weight-list" class="overflow-y-auto flex-1 pr-1 custom-scrollbar space-y-3 mb-4">
+                            <!-- ここにスライダーが動的に生成される -->
+                        </div>
+
+                        <div class="flex gap-2">
+                            <button onclick="closeBulkWeightEditor()"
+                                class="flex-1 bg-gray-800 text-gray-300 text-xs font-bold py-2.5 rounded border border-gray-600 hover:bg-gray-700">キャンセル</button>
+                            <button onclick="saveBulkWeights()"
+                                class="flex-1 bg-app-accent text-app-dark text-xs font-bold py-2.5 rounded hover:bg-sky-300 shadow-md">
+                                保存する
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
 
     </main>
 
@@ -3186,8 +3272,20 @@
         function toggleAutoTimeInput() {
             const type = document.getElementById('edit-challenge-auto-type').value;
             const area = document.getElementById('auto-time-input-area');
+            const input = document.getElementById('edit-challenge-target-time');
+            const help = document.getElementById('auto-time-help-text');
+
             if (type) {
                 area.classList.remove('hidden');
+                if (type === 'study_time') {
+                    input.type = 'number';
+                    input.placeholder = '60 (分)';
+                    help.textContent = '※目標とする勉強時間を「分」で入力してください (例: 1時間なら60)';
+                } else {
+                    input.type = 'time';
+                    input.placeholder = '';
+                    help.textContent = '※目標とする時刻を入力してください';
+                }
             } else {
                 area.classList.add('hidden');
             }
@@ -4474,8 +4572,203 @@
                 }
             });
             updateChartColors();
+            // アコーディオンの初期状態を設定（直近で開いていたものを記憶しても良いが、一旦デフォルトは閉じておくか、最初だけ開く）
+            // ここでは習慣チェック表だけ開いておく
+            toggleAccordion('acc-challenge');
         };
-    </script>
+
+        // --- Global Data Migration ---
+        function getBlankData() {
+            return {
+                subjects: {},
+                schedules: {},
+                currentSubjectId: ALL_SUBJECTS_ID,
+                sleepLog: {},
+                studyLog: {}, // ★追加
+                ticker: JSON.parse(JSON.stringify(defaultTicker))
+            };
+        }
+
+        // --- Accordion Logic ---
+        function toggleAccordion(id) {
+            const content = document.getElementById(id);
+            const icon = document.getElementById('icon-' + id);
+            if (content.classList.contains('hidden')) {
+                content.classList.remove('hidden');
+                icon.style.transform = 'rotate(180deg)';
+                // 開いたタイミングでグラフなどの再描画が必要なら呼ぶ
+                if (id === 'acc-study-time') {
+                    renderStudyChart();
+                } else if (id === 'acc-life-rhythm') {
+                    renderSleepChart();
+                }
+            } else {
+                content.classList.add('hidden');
+                icon.style.transform = 'rotate(0deg)';
+            }
+        }
+
+        // --- Study Time Logic ---
+        let studyChartRange = 7;
+        let studyTimeChart = null;
+
+        function loadStudyLogDate() {
+            const dateInput = document.getElementById('study-log-date');
+            if (!dateInput.value) dateInput.value = getTodayStr();
+            const dateStr = dateInput.value;
+
+            const log = (appData.studyLog && appData.studyLog[dateStr]) || { time: 0 };
+            const hours = Math.floor(log.time / 60);
+            const minutes = log.time % 60;
+
+            document.getElementById('study-log-hours').value = hours;
+            document.getElementById('study-log-minutes').value = minutes;
+        }
+
+        function shiftStudyLogDate(diff) {
+            const dateInput = document.getElementById('study-log-date');
+            if (!dateInput.value) dateInput.value = getTodayStr();
+
+            const current = new Date(dateInput.value);
+            current.setDate(current.getDate() + diff);
+            dateInput.value = formatDate(current);
+            loadStudyLogDate();
+        }
+
+        function saveStudyLog() {
+            const dateStr = document.getElementById('study-log-date').value;
+            if (!dateStr) return;
+
+            const h = parseInt(document.getElementById('study-log-hours').value) || 0;
+            const m = parseInt(document.getElementById('study-log-minutes').value) || 0;
+            const totalMinutes = h * 60 + m;
+
+            if (!appData.studyLog) appData.studyLog = {};
+            appData.studyLog[dateStr] = { time: totalMinutes };
+
+            // 自動チェック判定
+            checkStudyTimeAutoChallenge(dateStr, totalMinutes);
+
+            saveData();
+            renderStudyChart();
+            showToast("勉強時間を記録しました");
+        }
+
+        function changeStudyChartRange(days) {
+            studyChartRange = days;
+            document.querySelectorAll('.study-chart-range-btn').forEach(btn => {
+                if (parseInt(btn.dataset.range) === days) {
+                    btn.classList.remove('text-gray-400', 'hover:bg-gray-800');
+                    btn.classList.add('bg-gray-700', 'text-white');
+                } else {
+                    btn.classList.add('text-gray-400', 'hover:bg-gray-800');
+                    btn.classList.remove('bg-gray-700', 'text-white');
+                }
+            });
+            renderStudyChart();
+        }
+
+        function renderStudyChart() {
+            const canvas = document.getElementById('studyTimeChart');
+            if (!canvas) return;
+
+            const ctx = canvas.getContext('2d');
+            const today = getToday();
+            const labels = [];
+            const data = [];
+            let totalTime = 0;
+
+            // X軸: 日付 (左が過去、右が今日)
+            for (let i = studyChartRange - 1; i >= 0; i--) {
+                const d = new Date(today);
+                d.setDate(d.getDate() - i);
+                const dStr = formatDate(d);
+                labels.push(`${d.getMonth() + 1}/${d.getDate()}`);
+
+                const log = (appData.studyLog && appData.studyLog[dStr]);
+                const minutes = log ? log.time : 0;
+                data.push(minutes / 60); // 時間単位で表示
+                totalTime += minutes;
+            }
+
+            // 合計時間の表示更新
+            const th = Math.floor(totalTime / 60);
+            const tm = totalTime % 60;
+            document.getElementById('study-total-display').textContent = `${th}h ${tm}m`;
+
+            const isLight = document.documentElement.classList.contains('light-mode');
+            const barColor = isLight ? '#3b82f6' : '#60a5fa';
+            const gridColor = isLight ? '#cbd5e1' : '#334155';
+            const textColor = isLight ? '#64748b' : '#94a3b8';
+
+            if (studyTimeChart) {
+                studyTimeChart.destroy();
+            }
+
+            studyTimeChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '勉強時間 (時間)',
+                        data: data,
+                        backgroundColor: barColor,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            grid: { display: false, color: gridColor },
+                            ticks: { color: textColor, font: { size: 10 } }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: gridColor, borderDash: [2, 2] },
+                            ticks: { color: textColor, font: { size: 10 } }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => {
+                                    const val = context.raw;
+                                    const h = Math.floor(val);
+                                    const m = Math.round((val - h) * 60);
+                                    return `${h}時間 ${m}分`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function checkStudyTimeAutoChallenge(dateStr, minutes) {
+            const challenges = getActiveChallenges();
+            let updated = false;
+
+            challenges.forEach(c => {
+                if (c.autoCheckType === 'study_time' && c.autoCheckTime) {
+                    const target = parseInt(c.autoCheckTime);
+                    if (minutes >= target) {
+                        if (!c.challengeHistory) c.challengeHistory = {};
+                        if (!c.challengeHistory[dateStr]) {
+                            c.challengeHistory[dateStr] = true;
+                            updated = true;
+                        }
+                    }
+                }
+            });
+
+            if (updated) {
+                renderChallengeScreen();
+                showToast("目標達成！チャレンジを更新しました");
+            }
+        }    </script>
 </body>
 
 </html>
