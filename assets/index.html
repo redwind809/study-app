@@ -4677,15 +4677,28 @@
         let studyTimeChart = null;
 
         function initStudyTimeSelects() {
-            const hourSelect = document.getElementById('study-log-hours');
-            // const minuteSelect = document.getElementById('study-log-minutes'); // Removed
-            const minuteScroll = document.getElementById('study-log-minutes-scroll');
-            const minuteInput = document.getElementById('study-log-minutes');
+            // Main Tab Picker
+            initSinglePicker('study-log-hours-main', 'study-log-minutes-scroll-main', 'study-log-minutes-main');
+
+            // Modal Picker (using the IDs currently in the modal)
+            // Note: The modal HTML (from previous steps) has IDs: study-log-hours, study-log-minutes-scroll, study-log-minutes
+            // I should probably rename them to be consistent, but for now let's target them as is.
+            initSinglePicker('study-log-hours', 'study-log-minutes-scroll', 'study-log-minutes');
+
+            loadStudyLogDate();
+        }
+
+        function initSinglePicker(hourId, scrollId, inputId) {
+            const hourSelect = document.getElementById(hourId);
+            const minuteScroll = document.getElementById(scrollId);
+            const minuteInput = document.getElementById(inputId);
+
+            if (!hourSelect || !minuteScroll || !minuteInput) return;
 
             hourSelect.innerHTML = '';
             minuteScroll.innerHTML = '';
 
-            // Hours (Standard Select)
+            // Hours
             for (let i = 0; i <= 24; i++) {
                 const opt = document.createElement('option');
                 opt.value = i;
@@ -4694,16 +4707,6 @@
             }
 
             // Minutes (Infinite Scroll)
-            // Item height = 46px (container height) -> To center, we need padding?
-            // Actually, usually drum pickers have items of fixed height, e.g. 46px.
-            // Let's assume each item is 46px high and we snap to it.
-            // Setup:
-            // Container height: 46px.
-            // Item height: 46px.
-            // To allow "infinite" scroll, we need 3 sets of 00-59.
-            // [Set 1 (Clone)] [Set 2 (Real)] [Set 3 (Clone)]
-            // We scroll in Set 2. If we hit Set 1 or Set 3, we jump back to Set 2.
-
             const createItem = (val) => {
                 const div = document.createElement('div');
                 div.className = "h-[46px] flex items-center justify-center text-xl font-mono text-white snap-center shrink-0 w-full";
@@ -4712,50 +4715,31 @@
                 return div;
             };
 
-            // 3 sets of 0-59
             for (let set = 0; set < 3; set++) {
                 for (let i = 0; i < 60; i++) {
                     minuteScroll.appendChild(createItem(i));
                 }
             }
 
-            // Scroll Logic
             const itemHeight = 46;
             const singleSetHeight = itemHeight * 60;
-
-            // Initial Position (Center of Set 2, at 0 minutes)
-            // Set 2 starts at index 60.
-            minuteScroll.scrollTop = singleSetHeight;
+            minuteScroll.scrollTop = singleSetHeight; // Center set
 
             let isScrolling = false;
-
             minuteScroll.addEventListener('scroll', () => {
                 if (isScrolling) return;
-
                 const currentScroll = minuteScroll.scrollTop;
-
-                // Infinite Scroll Jump
-                if (currentScroll < itemHeight * 10) { // Too close to top (Set 1)
-                    // Jump forward to Set 2
+                if (currentScroll < itemHeight * 10) {
                     minuteScroll.scrollTop = currentScroll + singleSetHeight;
-                } else if (currentScroll > singleSetHeight * 2 - itemHeight * 10) { // Too close to bottom (Set 3)
-                    // Jump backward to Set 2
+                } else if (currentScroll > singleSetHeight * 2 - itemHeight * 10) {
                     minuteScroll.scrollTop = currentScroll - singleSetHeight;
                 }
-
-                // Detect Value
-                // Center of the container is at scrollTop + containerHeight/2
-                // But since items snap to center and container is same height as item (46px),
-                // the visible item is at scrollTop.
                 const centerIndex = Math.round(minuteScroll.scrollTop / itemHeight);
                 const val = centerIndex % 60;
                 if (minuteInput.value != val) {
                     minuteInput.value = val;
                 }
             });
-
-            // Snap adjustment on init
-            loadStudyLogDate();
         }
 
         function loadStudyLogDate() {
@@ -4776,18 +4760,23 @@
             const hours = Math.floor(log.time / 60);
             const minutes = log.time % 60;
 
-            document.getElementById('study-log-hours').value = hours;
+            // Sync Main Picker
+            syncPickerValues('study-log-hours-main', 'study-log-minutes-scroll-main', 'study-log-minutes-main', hours, minutes);
 
-            // Minutes Scroll Sync
-            const minuteScroll = document.getElementById('study-log-minutes-scroll');
-            const minuteInput = document.getElementById('study-log-minutes');
-            minuteInput.value = minutes;
+            // Sync Modal Picker (if it exists)
+            syncPickerValues('study-log-hours', 'study-log-minutes-scroll', 'study-log-minutes', hours, minutes);
+        }
 
+        function syncPickerValues(hourId, scrollId, inputId, hours, minutes) {
+            const hourSelect = document.getElementById(hourId);
+            const minuteScroll = document.getElementById(scrollId);
+            const minuteInput = document.getElementById(inputId);
+
+            if (hourSelect) hourSelect.value = hours;
+            if (minuteInput) minuteInput.value = minutes;
             if (minuteScroll) {
-                // Calculate position in Set 2
                 const itemHeight = 46;
                 const singleSetHeight = itemHeight * 60;
-                // Set 2 starts at 60 * itemHeight
                 const targetScroll = singleSetHeight + (minutes * itemHeight);
                 minuteScroll.scrollTop = targetScroll;
             }
