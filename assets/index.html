@@ -2002,13 +2002,38 @@
                 // (E) 生活リズム
                 const sleepLogRows = [['日付', '起床時間', '就寝時間', '睡眠時間(分)']];
                 if (appData.sleepLog) {
-                    Object.keys(appData.sleepLog).sort().forEach(date => {
+                    const sortedDates = Object.keys(appData.sleepLog).sort();
+                    sortedDates.forEach(date => {
                         const log = appData.sleepLog[date];
                         let duration = '';
+                        // 当日の起床時間
                         const wake = timeToMinutes(log.wake);
-                        const bed = timeToMinutes(log.bed, true);
-                        if (wake !== null && bed !== null) {
-                            duration = wake - bed;
+
+                        // 前日の就寝時間を取得
+                        const dObj = new Date(date);
+                        dObj.setDate(dObj.getDate() - 1);
+                        const prevDate = formatDate(dObj);
+                        const prevLog = appData.sleepLog[prevDate];
+
+                        if (wake !== null && prevLog && prevLog.bed) {
+                            const prevBed = timeToMinutes(prevLog.bed, true);
+                            if (prevBed !== null) {
+                                // 前日就寝〜当日起床まで
+                                // prevBedは 0〜29時くらいの範囲 (24+4=28)
+                                // wakeは 0〜24時の範囲
+                                // 日付をまたぐので、wakeに24h(1440m)を足してから引く
+                                // ただしprevBedがすでに24h超え(25:00等)の場合もある
+                                // timeToMinutesの仕様:
+                                //   bedtimeかつ0-4時は+1440される (例: 01:00 -> 1500)
+                                //   それ以外(23:00)はそのまま (例: 23:00 -> 1380)
+                                //
+                                // 計算式: (wake + 1440) - prevBed
+                                // 例1: 前日23:00(1380) -> 当日07:00(420)
+                                //      (420 + 1440) - 1380 = 1860 - 1380 = 480 (8h) OK
+                                // 例2: 前日25:00(01:00)(1500) -> 当日08:00(480)
+                                //      (480 + 1440) - 1500 = 1920 - 1500 = 420 (7h) OK
+                                duration = (wake + 1440) - prevBed;
+                            }
                         }
                         sleepLogRows.push([date, log.wake || '', log.bed || '', duration]);
                     });
