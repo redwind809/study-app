@@ -1661,7 +1661,7 @@
 
     <script>
         // --- 1. Variables & Base Data ---
-        const APP_VERSION = "v3.6"; // ★変更を加えるたびにここを書き換える
+        const APP_VERSION = "v3.7"; // ★変更を加えるたびにここを書き換える
         const ALL_SUBJECTS_ID = 'all';
         const SUBJECT_FIXED_COLORS = { chemistry: 'text-app-accent', math: 'text-green-400', physics: 'text-purple-400' };
         const COLOR_PALETTE = ['text-sky-400', 'text-emerald-400', 'text-violet-400', 'text-amber-400', 'text-rose-400', 'text-fuchsia-400', 'text-cyan-400', 'text-lime-400', 'text-indigo-400', 'text-pink-400', 'text-yellow-400', 'text-teal-400', 'text-blue-500', 'text-green-500', 'text-purple-500', 'text-orange-500', 'text-red-500', 'text-blue-300', 'text-green-300', 'text-purple-300', 'text-orange-300', 'text-rose-300', 'text-emerald-300', 'text-sky-300'];
@@ -1999,8 +1999,16 @@
                     }
                 });
 
+                // (Z) ヘルパー: 分を「X時間Y分」に変換
+                const formatDuration = (m) => {
+                    if (m === '' || m === null || isNaN(m)) return '';
+                    const hours = Math.floor(m / 60);
+                    const mins = m % 60;
+                    return `${hours}時間${mins}分`;
+                };
+
                 // (E) 生活リズム
-                const sleepLogRows = [['日付', '起床時間', '就寝時間', '睡眠時間(分)']];
+                const sleepLogRows = [['日付', '起床時間', '就寝時間', '睡眠時間']];
                 if (appData.sleepLog) {
                     const sortedDates = Object.keys(appData.sleepLog).sort();
                     sortedDates.forEach(date => {
@@ -2018,33 +2026,20 @@
                         if (wake !== null && prevLog && prevLog.bed) {
                             const prevBed = timeToMinutes(prevLog.bed, true);
                             if (prevBed !== null) {
-                                // 前日就寝〜当日起床まで
-                                // prevBedは 0〜29時くらいの範囲 (24+4=28)
-                                // wakeは 0〜24時の範囲
-                                // 日付をまたぐので、wakeに24h(1440m)を足してから引く
-                                // ただしprevBedがすでに24h超え(25:00等)の場合もある
-                                // timeToMinutesの仕様:
-                                //   bedtimeかつ0-4時は+1440される (例: 01:00 -> 1500)
-                                //   それ以外(23:00)はそのまま (例: 23:00 -> 1380)
-                                //
-                                // 計算式: (wake + 1440) - prevBed
-                                // 例1: 前日23:00(1380) -> 当日07:00(420)
-                                //      (420 + 1440) - 1380 = 1860 - 1380 = 480 (8h) OK
-                                // 例2: 前日25:00(01:00)(1500) -> 当日08:00(480)
-                                //      (480 + 1440) - 1500 = 1920 - 1500 = 420 (7h) OK
+                                // 前日就寝〜当日起床
                                 duration = (wake + 1440) - prevBed;
                             }
                         }
-                        sleepLogRows.push([date, log.wake || '', log.bed || '', duration]);
+                        sleepLogRows.push([date, log.wake || '', log.bed || '', formatDuration(duration)]);
                     });
                 }
 
-                // (F) 勉強時間 ★新規追加・別シート
-                const studyLogRows = [['日付', '勉強時間(分)']];
+                // (F) 勉強時間
+                const studyLogRows = [['日付', '勉強時間']];
                 if (appData.studyLog) {
                     Object.keys(appData.studyLog).sort().forEach(date => {
                         const log = appData.studyLog[date];
-                        studyLogRows.push([date, log.time]);
+                        studyLogRows.push([date, formatDuration(log.time)]);
                     });
                 }
 
@@ -2087,6 +2082,7 @@
 
             } catch (e) {
                 console.error(e);
+                // エラー時の再ログイン誘導も親切にする
                 if (e.message.includes("401") || e.message.includes("auth")) {
                     if (confirm("認証の有効期限が切れました。\n再ログインしてやり直しますか？")) {
                         performGoogleLogin();
