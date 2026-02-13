@@ -1661,7 +1661,7 @@
 
     <script>
         // --- 1. Variables & Base Data ---
-        const APP_VERSION = "v3.4"; // ★変更を加えるたびにここを書き換える
+        const APP_VERSION = "v3.5"; // ★変更を加えるたびにここを書き換える
         const ALL_SUBJECTS_ID = 'all';
         const SUBJECT_FIXED_COLORS = { chemistry: 'text-app-accent', math: 'text-green-400', physics: 'text-purple-400' };
         const COLOR_PALETTE = ['text-sky-400', 'text-emerald-400', 'text-violet-400', 'text-amber-400', 'text-rose-400', 'text-fuchsia-400', 'text-cyan-400', 'text-lime-400', 'text-indigo-400', 'text-pink-400', 'text-yellow-400', 'text-teal-400', 'text-blue-500', 'text-green-500', 'text-purple-500', 'text-orange-500', 'text-red-500', 'text-blue-300', 'text-green-300', 'text-purple-300', 'text-orange-300', 'text-rose-300', 'text-emerald-300', 'text-sky-300'];
@@ -1948,112 +1948,140 @@
                 });
 
                 // (B) 全単元リスト
-                const detailRows = [['科目', 'カテゴリ', '単元名', '状態', '完了日', '苦手フラグ', '周回数']];
-                Object.values(appData.subjects).forEach(s => {
-                    if (s.type === 'study' && s.syllabus) {
-                        s.syllabus.forEach(u => {
-                            detailRows.push([
-                                s.name, u.category, u.title,
-                                u.status === 'completed' ? '完了' : '未完了',
-                                u.completedDate === 'initial' ? '既遂' : (u.completedDate || ''),
-                                u.isWeak ? '苦手' : '',
-                                u.lapCount || 0
-                            ]);
-                        });
-                    }
+                let csv = "日付,科目,カテゴリ,単元,ステータス,完了日,周回数,苦手,メモ,睡眠時間(分),勉強時間(分)\n";
+
+                // 1. 学習ログの出力
+                Object.keys(appData.subjects).forEach(subjId => {
+                    const subj = appData.subjects[subjId];
+                    if (subj.type === 'challenge') return; // チャレンジは個別に扱うか、ここでは対象外
+
+                    subj.syllabus.forEach(item => {
+                        const status = item.status === 'completed' ? '完了' :
+                            item.status === 'completed_init' ? '既遂' : '未完了';
+                        const date = item.completedDate || '';
+                        const weak = item.isWeak ? 'TRUE' : 'FALSE';
+                        const memo = (item.memo || '').replace(/,/g, '、'); // CSV対策
+
+                        // ここに睡眠時間や勉強時間は紐付かないので空欄
+                        csv += `${date},${subj.name},${item.category},${item.title},${status},${date},${item.lapCount || 0},${weak},${memo},,\n`;
+                    });
                 });
 
-                // (C) 日次推移 (Daily)
-                const historyRows = [['日付', '科目名', '進捗率(%)']];
-                Object.values(appData.subjects).forEach(s => {
-                    if (s.type === 'study' && s.isActive) {
-                        let start = s.startDate ? new Date(s.startDate) : null;
-                        if (!start && s.history) {
-                            const dates = Object.keys(s.history).sort();
-                            if (dates.length > 0) start = new Date(dates[0]);
+                // 2. 睡眠ログ・勉強ログの出力 (日付ベース)
+                // 睡眠ログと勉強ログの日付範囲をマージして出力
+                const dates = new Set([
+                    ...Object.keys(appData.sleepLog || {}),
+                    ...Object.keys(appData.studyLog || {})
+                ]);
+                const sortedDates = Array.from(dates).sort();
+
+                sortedDates.forEach(dateStr => {
+                    const sleepLog = appData.sleepLog ? appData.sleepLog[dateStr] : null;
+                    const studyLog = appData.studyLog ? appData.studyLog[dateStr] : null;
+
+                    let sleepTime = '';
+                    if (sleepLog) {
+                        const wake = timeToMinutes(sleepLog.wake);
+                        const bed = timeToMinutes(sleepLog.bed, true);
+                        if (wake !== null && bed !== null) {
+                            sleepTime = wake - bed; // 分
                         }
-                        if (!start) start = new Date(today);
+                    }
 
-                        let cursor = new Date(start);
-                        let lastVal = 0;
-                        while (cursor <= today) {
-                            const dStr = formatDate(cursor);
-                            if (s.history && s.history[dStr] !== undefined) lastVal = s.history[dStr];
-                            historyRows.push([dStr, s.name, lastVal]);
-                            cursor.setDate(cursor.getDate() + 1);
-                        }
+                    let studyTime = '';
+                    if (studyLog) {
+                        studyTime = studyLog.time; // 分
+                    }
+
+                    if (sleepTime !== '' || studyTime !== '') {
+                        csv += `${dateStr},DayLog,,,,,,,,${sleepTime},${studyTime}\n`;
                     }
                 });
 
-                // (D) チャレンジ記録
-                // ★修正：Geminiが理解しやすいよう、ヘッダーの横（E列）に注釈を入れる
-                const challengeRows = [['日付', 'チャレンジ名', '達成', '曜日', '【備考: このシートには実施した日のみ記録されています。日付がない日は未実施です。】']];
-                const weekDays = ['日', '月', '火', '水', '木', '金', '土'];
-                Object.values(appData.subjects).forEach(s => {
-                    if (s.type === 'challenge' && s.challengeHistory) {
-                        Object.keys(s.challengeHistory).sort().forEach(date => {
-                            const d = new Date(date);
-                            // データ行のE列は空でOK
-                            challengeRows.push([date, s.name, 'TRUE', weekDays[d.getDay()], '']);
-                        });
+                // クリップボードにコピー
+                navigator.clipboard.writeText(csv).then(() => {
+                    showToast("CSVをクリップボードにコピーしました！\nスプレッドシートに貼り付けてください。");
+                }).catch(err => {
+                    console.error('Copy failed', err);
+                    showToast("コピーに失敗しました");
+                });
+            }        const dStr = formatDate(cursor);
+            if (s.history && s.history[dStr] !== undefined) lastVal = s.history[dStr];
+            historyRows.push([dStr, s.name, lastVal]);
+            cursor.setDate(cursor.getDate() + 1);
+        }
                     }
                 });
 
-                // (E) 生活リズム
-                const sleepLogRows = [['日付', '起床時間', '就寝時間']];
-                if (appData.sleepLog) {
-                    Object.keys(appData.sleepLog).sort().forEach(date => {
-                        const log = appData.sleepLog[date];
-                        sleepLogRows.push([date, log.wake || '', log.bed || '']);
-                    });
-                }
+        // (D) チャレンジ記録
+        // ★修正：Geminiが理解しやすいよう、ヘッダーの横（E列）に注釈を入れる
+        const challengeRows = [['日付', 'チャレンジ名', '達成', '曜日', '【備考: このシートには実施した日のみ記録されています。日付がない日は未実施です。】']];
+        const weekDays = ['日', '月', '火', '水', '木', '金', '土'];
+        Object.values(appData.subjects).forEach(s => {
+            if (s.type === 'challenge' && s.challengeHistory) {
+                Object.keys(s.challengeHistory).sort().forEach(date => {
+                    const d = new Date(date);
+                    // データ行のE列は空でOK
+                    challengeRows.push([date, s.name, 'TRUE', weekDays[d.getDay()], '']);
+                });
+            }
+        });
 
-                // 4. 完全クリア & 書き込み
-                if (!isNewSheet) {
-                    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchClear`, {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${googleAccessToken}`, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            ranges: [
-                                "'サマリー(進捗)'!A:Z",
-                                "'全単元リスト'!A:Z",
-                                "'日次推移(Daily)'!A:Z",
-                                "'チャレンジ記録'!A:Z",
-                                "'生活リズム'!A:Z"
-                            ]
-                        })
-                    });
-                }
+        // (E) 生活リズム
+        const sleepLogRows = [['日付', '起床時間', '就寝時間']];
+        if (appData.sleepLog) {
+            Object.keys(appData.sleepLog).sort().forEach(date => {
+                const log = appData.sleepLog[date];
+                sleepLogRows.push([date, log.wake || '', log.bed || '']);
+            });
+        }
 
-                const dataBody = [];
-                dataBody.push({ range: `'サマリー(進捗)'!A1`, values: summaryRows });
-                dataBody.push({ range: `'全単元リスト'!A1`, values: detailRows });
-                dataBody.push({ range: `'日次推移(Daily)'!A1`, values: historyRows });
-                dataBody.push({ range: `'チャレンジ記録'!A1`, values: challengeRows });
-                dataBody.push({ range: `'生活リズム'!A1`, values: sleepLogRows });
+        // 4. 完全クリア & 書き込み
+        if (!isNewSheet) {
+            await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchClear`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${googleAccessToken}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ranges: [
+                        "'サマリー(進捗)'!A:Z",
+                        "'全単元リスト'!A:Z",
+                        "'日次推移(Daily)'!A:Z",
+                        "'チャレンジ記録'!A:Z",
+                        "'生活リズム'!A:Z"
+                    ]
+                })
+            });
+        }
 
-                if (dataBody.length > 0) {
-                    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchUpdate`, {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${googleAccessToken}`, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data: dataBody })
-                    });
-                }
+        const dataBody = [];
+        dataBody.push({ range: `'サマリー(進捗)'!A1`, values: summaryRows });
+        dataBody.push({ range: `'全単元リスト'!A1`, values: detailRows });
+        dataBody.push({ range: `'日次推移(Daily)'!A1`, values: historyRows });
+        dataBody.push({ range: `'チャレンジ記録'!A1`, values: challengeRows });
+        dataBody.push({ range: `'生活リズム'!A1`, values: sleepLogRows });
 
-                showToast("更新完了！シートを開きます");
-                window.open(`https://docs.google.com/spreadsheets/d/${spreadsheetId}`, '_blank');
+        if (dataBody.length > 0) {
+            await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchUpdate`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${googleAccessToken}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data: dataBody })
+            });
+        }
+
+        showToast("更新完了！シートを開きます");
+        window.open(`https://docs.google.com/spreadsheets/d/${spreadsheetId}`, '_blank');
 
             } catch (e) {
-                console.error(e);
-                // エラー時の再ログイン誘導も親切にする
-                if (e.message.includes("401") || e.message.includes("auth")) {
-                    if (confirm("認証の有効期限が切れました。\n再ログインしてやり直しますか？")) {
-                        performGoogleLogin();
-                    }
-                } else {
-                    alert("エクスポートに失敗しました。\n詳細: " + e.message);
+            console.error(e);
+            // エラー時の再ログイン誘導も親切にする
+            if (e.message.includes("401") || e.message.includes("auth")) {
+                if (confirm("認証の有効期限が切れました。\n再ログインしてやり直しますか？")) {
+                    performGoogleLogin();
                 }
+            } else {
+                alert("エクスポートに失敗しました。\n詳細: " + e.message);
             }
+        }
         }
 
         function saveData() {
