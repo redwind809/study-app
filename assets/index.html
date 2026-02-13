@@ -941,10 +941,11 @@
                                     class="w-16 bg-gray-900 border-b border-gray-600 text-white text-lg font-mono focus:border-app-accent outline-none text-right appearance-none">
                                 </select>
                                 <span class="text-xs text-gray-400">時間</span>
-                                <div
-                                    class="relative w-16 h-[34px] bg-gray-900 border-b border-gray-600 rounded overflow-hidden select-none">
+                                <div id="study-log-minutes-container"
+                                    style="position:relative; width:4rem; height:34px; background:#111827; border-bottom:1px solid #4b5563; border-radius:0.25rem; overflow:hidden; user-select:none;">
                                     <div id="study-log-minutes-scroll"
-                                        class="absolute inset-0 overflow-y-scroll scrollbar-hide snap-y snap-mandatory">
+                                        style="position:absolute; inset:0; overflow-y:scroll; scroll-snap-type:y mandatory;"
+                                        class="scrollbar-hide">
                                     </div>
                                 </div>
                                 <input type="hidden" id="study-log-minutes" value="0">
@@ -4684,7 +4685,7 @@
             const ITEM_H = 34; // matches h-[34px] in HTML container
             const createItem = (val) => {
                 const div = document.createElement('div');
-                div.className = "h-[34px] flex items-center justify-center text-lg font-mono text-white snap-center shrink-0 w-full";
+                div.style.cssText = 'height:34px; display:flex; align-items:center; justify-content:center; font-size:1.125rem; font-family:ui-monospace,monospace; color:white; scroll-snap-align:center; flex-shrink:0; width:100%;';
                 div.textContent = String(val).padStart(2, '0');
                 div.dataset.value = val;
                 return div;
