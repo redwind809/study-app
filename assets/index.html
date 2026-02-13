@@ -1697,7 +1697,7 @@
             isEnabled: true
         };
 
-        const getBlankData = () => ({ currentSubjectId: 'chemistry', subjects: JSON.parse(JSON.stringify(defaultSubjects)), schedules: {}, debugDate: null, ticker: JSON.parse(JSON.stringify(defaultTicker)), sleepLog: {} });
+
 
         let appData = getBlankData();
         let currentRecordDate = new Date();
@@ -4580,9 +4580,9 @@
         // --- Global Data Migration ---
         function getBlankData() {
             return {
-                subjects: {},
+                subjects: JSON.parse(JSON.stringify(defaultSubjects)),
                 schedules: {},
-                currentSubjectId: ALL_SUBJECTS_ID,
+                currentSubjectId: 'chemistry', // 初期選択は化学
                 sleepLog: {},
                 studyLog: {}, // ★追加
                 ticker: JSON.parse(JSON.stringify(defaultTicker))
