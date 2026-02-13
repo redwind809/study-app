@@ -1611,6 +1611,31 @@
                     </div>
                 </div>
 
+                <div class="flex items-end gap-2 justify-center mb-4">
+                    <div class="flex flex-col items-center">
+                        <label class="text-[10px] text-gray-500 mb-1 font-bold">時間</label>
+                        <select id="study-log-hours"
+                            class="bg-gray-800 border border-gray-600 text-white rounded px-4 py-2 text-xl font-mono text-center w-24">
+                        </select>
+                    </div>
+                    <span class="text-white pb-3 font-bold">:</span>
+                    <div class="flex flex-col items-center">
+                        <label class="text-[10px] text-gray-500 mb-1 font-bold">分</label>
+                        <!-- Infinite Scroll Picker Container -->
+                        <div
+                            class="relative w-24 h-[46px] bg-gray-800 border border-gray-600 rounded overflow-hidden group select-none">
+                            <div id="study-log-minutes-scroll"
+                                class="absolute inset-0 overflow-y-scroll scrollbar-hide snap-y snap-mandatory cursor-grab active:cursor-grabbing">
+                                <!-- Options will be injected safely by JS -->
+                            </div>
+                            <!-- Highlight overlay -->
+                            <div
+                                class="pointer-events-none absolute inset-0 border-2 border-app-accent rounded opacity-50 bg-white/5">
+                            </div>
+                        </div>
+                        <input type="hidden" id="study-log-minutes">
+                    </div>
+                </div>
                 <div>
                     <label class="text-[10px] text-gray-500 block mb-1 font-bold">ステータス・完了日</label>
                     <div class="flex flex-col gap-2">
@@ -4653,22 +4678,83 @@
 
         function initStudyTimeSelects() {
             const hourSelect = document.getElementById('study-log-hours');
-            const minuteSelect = document.getElementById('study-log-minutes');
-            hourSelect.innerHTML = '';
-            minuteSelect.innerHTML = '';
+            // const minuteSelect = document.getElementById('study-log-minutes'); // Removed
+            const minuteScroll = document.getElementById('study-log-minutes-scroll');
+            const minuteInput = document.getElementById('study-log-minutes');
 
+            hourSelect.innerHTML = '';
+            minuteScroll.innerHTML = '';
+
+            // Hours (Standard Select)
             for (let i = 0; i <= 24; i++) {
                 const opt = document.createElement('option');
                 opt.value = i;
                 opt.textContent = i;
                 hourSelect.appendChild(opt);
             }
-            for (let i = 0; i < 60; i++) {
-                const opt = document.createElement('option');
-                opt.value = i;
-                opt.textContent = String(i).padStart(2, '0');
-                minuteSelect.appendChild(opt);
+
+            // Minutes (Infinite Scroll)
+            // Item height = 46px (container height) -> To center, we need padding?
+            // Actually, usually drum pickers have items of fixed height, e.g. 46px.
+            // Let's assume each item is 46px high and we snap to it.
+            // Setup:
+            // Container height: 46px.
+            // Item height: 46px.
+            // To allow "infinite" scroll, we need 3 sets of 00-59.
+            // [Set 1 (Clone)] [Set 2 (Real)] [Set 3 (Clone)]
+            // We scroll in Set 2. If we hit Set 1 or Set 3, we jump back to Set 2.
+
+            const createItem = (val) => {
+                const div = document.createElement('div');
+                div.className = "h-[46px] flex items-center justify-center text-xl font-mono text-white snap-center shrink-0 w-full";
+                div.textContent = String(val).padStart(2, '0');
+                div.dataset.value = val;
+                return div;
+            };
+
+            // 3 sets of 0-59
+            for (let set = 0; set < 3; set++) {
+                for (let i = 0; i < 60; i++) {
+                    minuteScroll.appendChild(createItem(i));
+                }
             }
+
+            // Scroll Logic
+            const itemHeight = 46;
+            const singleSetHeight = itemHeight * 60;
+
+            // Initial Position (Center of Set 2, at 0 minutes)
+            // Set 2 starts at index 60.
+            minuteScroll.scrollTop = singleSetHeight;
+
+            let isScrolling = false;
+
+            minuteScroll.addEventListener('scroll', () => {
+                if (isScrolling) return;
+
+                const currentScroll = minuteScroll.scrollTop;
+
+                // Infinite Scroll Jump
+                if (currentScroll < itemHeight * 10) { // Too close to top (Set 1)
+                    // Jump forward to Set 2
+                    minuteScroll.scrollTop = currentScroll + singleSetHeight;
+                } else if (currentScroll > singleSetHeight * 2 - itemHeight * 10) { // Too close to bottom (Set 3)
+                    // Jump backward to Set 2
+                    minuteScroll.scrollTop = currentScroll - singleSetHeight;
+                }
+
+                // Detect Value
+                // Center of the container is at scrollTop + containerHeight/2
+                // But since items snap to center and container is same height as item (46px),
+                // the visible item is at scrollTop.
+                const centerIndex = Math.round(minuteScroll.scrollTop / itemHeight);
+                const val = centerIndex % 60;
+                if (minuteInput.value != val) {
+                    minuteInput.value = val;
+                }
+            });
+
+            // Snap adjustment on init
             loadStudyLogDate();
         }
 
@@ -4691,7 +4777,20 @@
             const minutes = log.time % 60;
 
             document.getElementById('study-log-hours').value = hours;
-            document.getElementById('study-log-minutes').value = minutes;
+
+            // Minutes Scroll Sync
+            const minuteScroll = document.getElementById('study-log-minutes-scroll');
+            const minuteInput = document.getElementById('study-log-minutes');
+            minuteInput.value = minutes;
+
+            if (minuteScroll) {
+                // Calculate position in Set 2
+                const itemHeight = 46;
+                const singleSetHeight = itemHeight * 60;
+                // Set 2 starts at 60 * itemHeight
+                const targetScroll = singleSetHeight + (minutes * itemHeight);
+                minuteScroll.scrollTop = targetScroll;
+            }
         }
 
         function shiftStudyLogDate(diff) {
