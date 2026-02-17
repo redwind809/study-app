@@ -1208,8 +1208,12 @@
                                         class="w-full bg-gray-800 hover:bg-gray-700 text-gray-300 text-[10px] font-bold py-2 rounded border border-gray-700 transition-colors flex items-center justify-center gap-2">
                                         <i class="far fa-copy"></i> 構造JSONをコピー（id + category + title）
                                     </button>
-                                    <p class="text-[9px] text-gray-600 mt-1">※AIに渡してcategoryとtitleを編集してもらってください。idは変更不可。
-                                    </p>
+                                    <p class="text-[9px] text-gray-600 mt-1">※AIに渡してcategory, title,
+                                        difficultyを編集してもらってください。idは変更不可。</p>
+                                    <button onclick="copyStructurePrompt()"
+                                        class="w-full bg-gray-700 hover:bg-gray-600 text-gray-300 text-[10px] py-1 rounded border border-gray-600 transition-colors flex items-center justify-center gap-2 mt-2">
+                                        <i class="fas fa-paste"></i> プロンプト例をコピー（難易度タグ付け用）
+                                    </button>
                                 </div>
                                 <div>
                                     <textarea id="syllabus-structure-input"
@@ -4485,6 +4489,24 @@
             } catch (e) {
                 showAppConfirm("エラー", "JSONのパースに失敗しました:\n" + e.message, () => { });
             }
+        }
+
+        // ★追加：AI構造編集プロンプトコピー
+        function copyStructurePrompt() {
+            const text = `以下の学習単元リスト（JSON）の各項目の "difficulty" フィールドを更新してください。
+難易度は以下の基準で配列形式（["A"], ["B"]など）で付与してください。
+
+【難易度基準】
+- ["A"]: 基礎・基本事項
+- ["B"]: 標準的な入試レベル
+- ["C"]: 応用・難問レベル
+※必要に応じて ["A", "B"] のように複数設定しても構いません。
+
+出力はJSON形式のみでお願いします。解説は不要です。
+
+[ここにコピーしたJSONを貼り付け]`;
+            copyTextToClipboard(text);
+            showToast("プロンプト例をコピーしました！");
         }
 
         // --- CHART & UPDATE UI ---
