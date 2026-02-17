@@ -746,6 +746,8 @@
                 </div>
                 <div class="mt-2 text-xs text-gray-500" id="current-subject-name-display"></div>
             </div>
+            <!-- 難易度フィルター -->
+            <div id="difficulty-filter-area" class="flex flex-wrap justify-center gap-2 mb-4 hidden"></div>
 
             <div class="mb-8">
                 <div class="flex justify-between items-end mb-2">
@@ -1102,6 +1104,24 @@
                                     class="bg-app-accent text-app-dark text-xs font-bold px-4 rounded hover:bg-sky-300">変更</button>
                             </div>
                         </div>
+
+                        <details class="mb-4">
+                            <summary
+                                class="text-[10px] text-gray-500 cursor-pointer hover:text-gray-300 select-none mb-2">
+                                <i class="fas fa-tags mr-1"></i>難易度タグ設定
+                            </summary>
+                            <div class="bg-gray-800/50 rounded border border-gray-700 p-3 space-y-2">
+                                <div id="difficulty-label-list" class="space-y-1"></div>
+                                <div class="flex gap-2 mt-2">
+                                    <input type="text" id="new-diff-key" placeholder="タグ (例: D)"
+                                        class="w-16 bg-gray-900 border border-gray-700 text-white text-[10px] rounded px-2 py-1 text-center">
+                                    <input type="text" id="new-diff-label" placeholder="表示名 (例: C問題)"
+                                        class="flex-1 bg-gray-900 border border-gray-700 text-white text-[10px] rounded px-2 py-1">
+                                    <button onclick="addDifficultyLabel()"
+                                        class="bg-gray-700 hover:bg-gray-600 text-white text-[10px] px-3 py-1 rounded">追加</button>
+                                </div>
+                            </div>
+                        </details>
 
                         <div class="bg-gray-800/50 rounded border border-gray-700 p-3 mb-4">
                             <label class="text-[10px] text-gray-400 block mb-2 font-bold">単元の追加・編集</label>
@@ -1623,6 +1643,14 @@
                 </div>
 
                 <div>
+                    <label class="text-[10px] text-gray-500 block mb-1 font-bold">難易度タグ</label>
+                    <select id="bulk-edit-difficulty"
+                        class="w-full bg-gray-900 border border-gray-700 text-white text-xs rounded px-3 py-2">
+                        <option value="no-change">変更しない</option>
+                    </select>
+                </div>
+
+                <div>
                     <label class="text-[10px] text-gray-500 block mb-1 font-bold">周回数</label>
                     <input type="number" id="bulk-edit-lap" placeholder="変更しない場合は空欄" min="0"
                         class="w-full bg-gray-900 border border-gray-700 text-white text-xs rounded px-3 py-2">
@@ -1661,6 +1689,12 @@
                         <input type="text" id="single-edit-title"
                             class="w-full bg-gray-900 border border-gray-700 text-white text-xs rounded px-3 py-2">
                     </div>
+                </div>
+                <div>
+                    <label class="text-[10px] text-gray-500 block mb-1 font-bold">難易度タグ</label>
+                    <select id="single-edit-difficulty"
+                        class="w-full bg-gray-900 border border-gray-700 text-white text-xs rounded px-3 py-2">
+                    </select>
                 </div>
 
                 <div>
@@ -1713,7 +1747,7 @@
 
     <script>
         // --- 1. Variables & Base Data ---
-        const APP_VERSION = "v4.0";
+        const APP_VERSION = "v4.1";
         const ALL_SUBJECTS_ID = 'all';
         const SUBJECT_FIXED_COLORS = { chemistry: 'text-app-accent', math: 'text-green-400', physics: 'text-purple-400' };
         const COLOR_PALETTE = ['text-sky-400', 'text-emerald-400', 'text-violet-400', 'text-amber-400', 'text-rose-400', 'text-fuchsia-400', 'text-cyan-400', 'text-lime-400', 'text-indigo-400', 'text-pink-400', 'text-yellow-400', 'text-teal-400', 'text-blue-500', 'text-green-500', 'text-purple-500', 'text-orange-500', 'text-red-500', 'text-blue-300', 'text-green-300', 'text-purple-300', 'text-orange-300', 'text-rose-300', 'text-emerald-300', 'text-sky-300'];
@@ -2191,11 +2225,40 @@
                 if (!subj.type) subj.type = 'study';
                 if (!subj.history) subj.history = {};
                 if (subj.type === 'challenge' && !subj.challengeHistory) subj.challengeHistory = {};
+                if (!subj.difficultyLabels) subj.difficultyLabels = { A: 'A', B: 'B', C: 'C' };
+                if (!subj.difficultyFilter) subj.difficultyFilter = Object.keys(subj.difficultyLabels);
             });
             if (!data.ticker) data.ticker = JSON.parse(JSON.stringify(defaultTicker));
             if (data.ticker.isEnabled === undefined) data.ticker.isEnabled = true;
             if (!data.sleepLog) data.sleepLog = {};
             return data;
+        }
+
+        // ★ 難易度ヘルパー関数
+        function getDifficultyLabels(subjId) {
+            const subj = appData.subjects[subjId];
+            return subj?.difficultyLabels || { A: 'A', B: 'B', C: 'C' };
+        }
+        function getDifficultyFilter(subjId) {
+            const subj = appData.subjects[subjId];
+            return subj?.difficultyFilter || Object.keys(getDifficultyLabels(subjId));
+        }
+        function populateDifficultySelect(selectEl, subjId, currentVal, includeNoChange) {
+            selectEl.innerHTML = '';
+            if (includeNoChange) {
+                const opt = document.createElement('option'); opt.value = 'no-change'; opt.textContent = '変更しない'; selectEl.appendChild(opt);
+            }
+            const noneOpt = document.createElement('option'); noneOpt.value = ''; noneOpt.textContent = '（なし）'; selectEl.appendChild(noneOpt);
+            const labels = getDifficultyLabels(subjId);
+            Object.entries(labels).forEach(([key, label]) => {
+                const opt = document.createElement('option'); opt.value = key; opt.textContent = `${key} (${label})`; selectEl.appendChild(opt);
+            });
+            if (currentVal !== undefined) selectEl.value = currentVal;
+        }
+        function isUnitInFilter(unit, subjId) {
+            const filter = getDifficultyFilter(subjId);
+            if (!unit.difficulty) return true; // タグなしは常に含める
+            return filter.includes(unit.difficulty);
         }
 
         function recordHistory() {
@@ -2674,7 +2737,12 @@
             labelContainer.innerHTML = '';
             slitWrapper.innerHTML = '';
 
-            const syllabus = getCurrentSyllabus();
+            let syllabus = getCurrentSyllabus();
+            // 難易度フィルター適用
+            const subjId = appData.currentSubjectId;
+            if (subjId !== ALL_SUBJECTS_ID) {
+                syllabus = syllabus.filter(u => isUnitInFilter(u, subjId));
+            }
             if (syllabus.length === 0) return;
 
             // カテゴリラベル生成
@@ -2801,6 +2869,41 @@
             });
         }
 
+
+        // ★追加：難易度フィルターUI描画
+        function renderDifficultyFilter() {
+            const area = document.getElementById('difficulty-filter-area');
+            const subjId = appData.currentSubjectId;
+            if (subjId === ALL_SUBJECTS_ID || !appData.subjects[subjId] || appData.subjects[subjId].type === 'challenge') {
+                area.classList.add('hidden'); return;
+            }
+            const subj = appData.subjects[subjId];
+            const labels = subj.difficultyLabels || {};
+            // 実際にsyllabusに使われている難易度だけ表示
+            const usedDiffs = new Set(subj.syllabus.map(u => u.difficulty).filter(Boolean));
+            if (usedDiffs.size === 0) { area.classList.add('hidden'); return; }
+
+            area.classList.remove('hidden');
+            area.innerHTML = '<span class="text-[9px] text-gray-500 mr-1">対象:</span>';
+            const filter = subj.difficultyFilter || Object.keys(labels);
+
+            [...usedDiffs].sort().forEach(key => {
+                const isOn = filter.includes(key);
+                const label = labels[key] || key;
+                const chip = document.createElement('button');
+                chip.className = `text-[10px] px-2.5 py-1 rounded-full font-bold transition-all ${isOn ? 'bg-app-accent text-app-dark' : 'bg-gray-700 text-gray-500'}`;
+                chip.textContent = label;
+                chip.onclick = () => {
+                    if (isOn) {
+                        subj.difficultyFilter = filter.filter(f => f !== key);
+                    } else {
+                        subj.difficultyFilter = [...filter, key];
+                    }
+                    saveData(); updateUI();
+                };
+                area.appendChild(chip);
+            });
+        }
 
         // ★追加：ホーム画面のカテゴリ別進捗バー描画
         function renderCategoryProgress(syllabus) {
@@ -3409,7 +3512,55 @@
         }
         function toggleSubjectActive(id) { if (appData.subjects[id]) { appData.subjects[id].isActive = !appData.subjects[id].isActive; saveData(); updateUI(); } }
         function deleteSubjectRequest(id) { showAppConfirm("削除確認", `「${appData.subjects[id].name}」を完全に削除しますか？`, () => { delete appData.subjects[id]; if (appData.currentSubjectId === id) appData.currentSubjectId = ALL_SUBJECTS_ID; saveData(); updateUI(); }); }
-        function editSubject(id) { editingSubjectId = id; document.getElementById('edit-subject-name-input').value = appData.subjects[id].name; document.getElementById('unit-editor-area').classList.remove('hidden'); document.getElementById('challenge-editor-area').classList.add('hidden'); renderUnitList(); resetUnitInput(); }
+        function editSubject(id) { editingSubjectId = id; document.getElementById('edit-subject-name-input').value = appData.subjects[id].name; document.getElementById('unit-editor-area').classList.remove('hidden'); document.getElementById('challenge-editor-area').classList.add('hidden'); renderUnitList(); resetUnitInput(); renderDifficultyLabels(); }
+
+        // ★ 難易度ラベル管理
+        function renderDifficultyLabels() {
+            const container = document.getElementById('difficulty-label-list');
+            if (!container || !editingSubjectId) return;
+            const subj = appData.subjects[editingSubjectId];
+            if (!subj) return;
+            const labels = subj.difficultyLabels || {};
+            container.innerHTML = '';
+            Object.entries(labels).forEach(([key, label]) => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center gap-2';
+                row.innerHTML = `
+                    <span class="text-[10px] text-gray-400 font-mono w-6 text-center shrink-0">${key}</span>
+                    <span class="text-[10px] text-gray-600">→</span>
+                    <input type="text" value="${label}" onchange="updateDifficultyLabel('${key}', this.value)"
+                        class="flex-1 bg-gray-900 border border-gray-700 text-white text-[10px] rounded px-2 py-1">
+                    <button onclick="removeDifficultyLabel('${key}')"
+                        class="text-gray-600 hover:text-red-400 text-[10px]"><i class="fas fa-trash-alt"></i></button>
+                `;
+                container.appendChild(row);
+            });
+        }
+        function addDifficultyLabel() {
+            const key = document.getElementById('new-diff-key').value.trim().toUpperCase();
+            const label = document.getElementById('new-diff-label').value.trim();
+            if (!key) { showToast('タグキーを入力してください'); return; }
+            const subj = appData.subjects[editingSubjectId];
+            if (!subj.difficultyLabels) subj.difficultyLabels = {};
+            subj.difficultyLabels[key] = label || key;
+            if (!subj.difficultyFilter) subj.difficultyFilter = [];
+            subj.difficultyFilter.push(key);
+            document.getElementById('new-diff-key').value = '';
+            document.getElementById('new-diff-label').value = '';
+            saveData(); renderDifficultyLabels(); showToast(`タグ ${key} を追加しました`);
+        }
+        function removeDifficultyLabel(key) {
+            const subj = appData.subjects[editingSubjectId];
+            delete subj.difficultyLabels[key];
+            subj.difficultyFilter = (subj.difficultyFilter || []).filter(f => f !== key);
+            saveData(); renderDifficultyLabels(); updateUI();
+        }
+        function updateDifficultyLabel(key, newLabel) {
+            const subj = appData.subjects[editingSubjectId];
+            if (!subj.difficultyLabels) subj.difficultyLabels = {};
+            subj.difficultyLabels[key] = newLabel.trim() || key;
+            saveData();
+        }
 
         function editChallenge(id) {
             editingSubjectId = id;
@@ -3539,6 +3690,7 @@
             document.getElementById('bulk-edit-status').value = 'no-change';
             document.getElementById('bulk-edit-date').value = '';
             document.getElementById('bulk-edit-lap').value = '';
+            populateDifficultySelect(document.getElementById('bulk-edit-difficulty'), editingSubjectId, 'no-change', true);
             toggleBulkDateInputInModal();
 
             document.getElementById('bulk-edit-modal').classList.remove('hidden');
@@ -3567,9 +3719,10 @@
             const statusType = document.getElementById('bulk-edit-status').value;
             const dateVal = document.getElementById('bulk-edit-date').value;
             const lapVal = document.getElementById('bulk-edit-lap').value;
+            const diffVal = document.getElementById('bulk-edit-difficulty').value;
 
             // 何も入力されていない場合は警告
-            if (!newCat && statusType === 'no-change' && lapVal === "") {
+            if (!newCat && statusType === 'no-change' && lapVal === "" && diffVal === 'no-change') {
                 showToast("変更内容を入力してください");
                 return;
             }
@@ -3592,6 +3745,10 @@
                 // 1. カテゴリ更新（入力がある場合のみ）
                 if (newCat) {
                     item.category = newCat;
+                }
+                // 1.5. 難易度更新
+                if (diffVal !== 'no-change') {
+                    item.difficulty = diffVal || undefined;
                 }
 
                 // 2. ステータス更新（「変更しない」以外の場合）
@@ -3641,6 +3798,7 @@
             document.getElementById('single-edit-title').value = item.title;
             document.getElementById('single-edit-weak').checked = !!item.isWeak;
             document.getElementById('single-edit-lap').value = item.lapCount || 0;
+            populateDifficultySelect(document.getElementById('single-edit-difficulty'), editingSubjectId, item.difficulty || '', false);
 
             // ステータスの判定とセット
             const statusSel = document.getElementById('single-edit-status');
@@ -3695,6 +3853,8 @@
             item.title = title;
             item.isWeak = document.getElementById('single-edit-weak').checked;
             item.lapCount = parseInt(document.getElementById('single-edit-lap').value) || 0;
+            const diffVal = document.getElementById('single-edit-difficulty').value;
+            item.difficulty = diffVal || undefined;
 
             const statusType = document.getElementById('single-edit-status').value;
             const dateVal = document.getElementById('single-edit-date').value;
@@ -4077,7 +4237,7 @@
             if (!editingSubjectId) { showToast("科目が選択されていません"); return; }
             const subj = appData.subjects[editingSubjectId];
             if (!subj || !subj.syllabus || subj.syllabus.length === 0) { showToast("単元がありません"); return; }
-            const structure = subj.syllabus.map(u => ({ id: u.id, category: u.category || "", title: u.title }));
+            const structure = subj.syllabus.map(u => ({ id: u.id, category: u.category || "", title: u.title, difficulty: u.difficulty || "" }));
             const json = JSON.stringify(structure, null, 2);
             copyTextToClipboard(json);
             showToast(`${structure.length}件の構造JSONをコピーしました`);
@@ -4119,16 +4279,17 @@
                 }
             }
 
-            // 検証OK → category/titleのみ更新
+            // 検証OK → category/title/difficultyのみ更新
             const updateMap = {};
-            newStructure.forEach(item => { updateMap[item.id] = { category: item.category, title: item.title }; });
+            newStructure.forEach(item => { updateMap[item.id] = { category: item.category, title: item.title, difficulty: item.difficulty }; });
 
             let changed = 0;
             subj.syllabus.forEach(unit => {
                 const update = updateMap[unit.id];
-                if (unit.category !== update.category || unit.title !== update.title) {
+                if (unit.category !== update.category || unit.title !== update.title || (unit.difficulty || '') !== (update.difficulty || '')) {
                     unit.category = update.category;
                     unit.title = update.title;
+                    unit.difficulty = update.difficulty || undefined;
                     changed++;
                 }
             });
@@ -4366,6 +4527,7 @@
 
             if (isChallenge) {
                 document.getElementById('category-progress-section').classList.add('hidden');
+                document.getElementById('difficulty-filter-area').classList.add('hidden');
                 const subj = appData.subjects[appData.currentSubjectId]; const stats = calculateChallengeStats(subj);
                 percentage = stats.percentage;
                 const streakText = stats.currentStreak === 0 ? getStreakMessage(0) : `${stats.currentStreak}日連続継続中！ ${getStreakMessage(stats.currentStreak)}`;
@@ -4376,13 +4538,18 @@
                 progressCircleChart.data.datasets[0].data = [percentage, 100 - percentage];
             } else {
                 renderSlitBar();
-                // カテゴリ別進捗バー描画
-                renderCategoryProgress(getCurrentSyllabus());
+                // 難易度フィルターUI描画
+                renderDifficultyFilter();
                 const syl = getCurrentSyllabus();
-                const total = syl.length;
+                // 難易度フィルター適用
+                const subjId = appData.currentSubjectId;
+                const filtered = (subjId !== ALL_SUBJECTS_ID) ? syl.filter(u => isUnitInFilter(u, subjId)) : syl;
+                // カテゴリ別進捗バー描画（フィルター適用済み）
+                renderCategoryProgress(filtered);
+                const total = filtered.length;
                 if (total > 0) {
-                    const completedNormal = syl.filter(u => u.status === 'completed' && !u.isWeak).length;
-                    const completedWeak = syl.filter(u => u.status === 'completed' && u.isWeak).length;
+                    const completedNormal = filtered.filter(u => u.status === 'completed' && !u.isWeak).length;
+                    const completedWeak = filtered.filter(u => u.status === 'completed' && u.isWeak).length;
                     percentage = Math.round(((completedNormal + completedWeak) / total) * 100);
                     const pNormal = Math.round((completedNormal / total) * 100);
                     const pWeak = Math.round((completedWeak / total) * 100);
