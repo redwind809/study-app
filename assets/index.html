@@ -2259,10 +2259,10 @@
             if (includeNoChange) {
                 const opt = document.createElement('option'); opt.value = 'no-change'; opt.textContent = '変更しない'; selectEl.appendChild(opt);
             }
-            const noneOpt = document.createElement('option'); noneOpt.value = ''; noneOpt.textContent = '（なし）'; selectEl.appendChild(opt);
+            const noneOpt = document.createElement('option'); noneOpt.value = ''; noneOpt.textContent = '（なし）'; selectEl.appendChild(noneOpt);
             const labels = getDifficultyLabels(subjId);
             Object.entries(labels).forEach(([key, label]) => {
-                const opt = document.createElement('option'); opt.value = key; opt.textContent = `${key} (${label})`; selectEl.appendChild(opt);
+                const opt = document.createElement('option'); opt.value = key; opt.textContent = label || key; selectEl.appendChild(opt);
             });
             if (currentVal !== undefined) selectEl.value = currentVal;
         }
@@ -2295,7 +2295,7 @@
 
                 const span = document.createElement('span');
                 span.className = 'text-[10px] text-gray-300';
-                span.textContent = `${key} (${label})`; // キー(表示名)
+                span.textContent = label || key; // ラベルのみ表示
 
                 labelEl.appendChild(input);
                 labelEl.appendChild(span);
