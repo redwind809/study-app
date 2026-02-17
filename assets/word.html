@@ -1,0 +1,1667 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <link rel="apple-touch-icon" href="icon.png">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>単語暗記アプリ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+      }
+    </script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap');
+        
+        body { font-family: 'Inter', 'Noto Sans JP', sans-serif; touch-action: manipulation; overscroll-behavior: none; }
+        .custom-scroll::-webkit-scrollbar { width: 8px; }
+        .custom-scroll::-webkit-scrollbar-track { background: #f1f1f1; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
+        
+        /* アニメーション定義 */
+        .word-enter { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .flash-perfect { background-color: #f0fdf4; }
+        .dark .flash-perfect { background-color: #052e16; }
+        .flash-ok { background-color: #fefce8; }
+        .dark .flash-ok { background-color: #362f0a; }
+        .flash-bad { background-color: #f8fafc; }
+        .dark .flash-bad { background-color: #1f2937; }
+        .modal-enter { animation: modalIn 0.2s ease-out forwards; }
+        @keyframes modalIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } } 
+        
+        /* Menu / Toggle */
+        #menu-content { transform-origin: top right; transition: transform 0.2s, opacity 0.2s; }
+        .menu-hidden { transform: scale(0.95) translateY(-10px); opacity: 0; pointer-events: none; }
+        .menu-visible { transform: scale(1) translateY(0); opacity: 1; pointer-events: auto; }
+        .toggle-checkbox:checked { right: 0; border-color: #ef4444; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #ef4444; }
+        .toggle-input:checked + .toggle-bg { background-color: #ef4444; }
+        .toggle-input:checked + .toggle-bg .toggle-circle { transform: translateX(100%); }
+        
+        /* Pulse */
+        .pulse-text { animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+
+        /* シンプルモード時の非表示設定 */
+        body.simple-mode .hide-in-simple { display: none !important; }
+        body.simple-mode #settings-container {
+            opacity: 0;
+            pointer-events: auto;
+            transition: opacity 0.3s;
+        }
+        body.simple-mode #settings-container:active,
+        body.simple-mode #settings-container:hover {
+            opacity: 1;
+        }
+        body.simple-mode #replay-speech-btn {
+            opacity: 0;
+            pointer-events: auto;
+            transition: opacity 0.3s;
+        }
+        body.simple-mode #replay-speech-btn:hover {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body id="body-bg" class="bg-gray-50 dark:bg-gray-900 flex flex-col min-h-screen relative text-gray-800 dark:text-gray-200 transition-colors duration-200">
+
+    <!-- 設定メニュー (右上) -->
+    <div id="settings-container" class="absolute top-4 right-4 z-50 flex flex-col items-end">
+        <button onclick="toggleMenu()" class="p-2 rounded-full bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-700 shadow-sm border border-gray-200 dark:border-gray-700 transition-colors backdrop-blur-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+        </button>
+        <div id="menu-content" class="menu-hidden absolute top-12 right-0 bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 p-4 w-64 flex flex-col gap-4">
+            <div id="auth-section" class="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl">
+                <p class="text-[10px] font-bold text-gray-400 dark:text-gray-500 mb-2 uppercase tracking-widest">クラウド同期</p>
+                <button id="btn-login" onclick="login()" class="w-full text-xs font-bold py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors flex items-center justify-center gap-2">
+                    Googleでログイン
+                </button>
+                <div id="user-info" class="hidden flex flex-col gap-2">
+                    <div class="flex items-center gap-2 overflow-hidden">
+                        <span id="user-name" class="text-[10px] font-bold text-gray-600 dark:text-gray-300 truncate"></span>
+                    </div>
+                    <button onclick="logout()" class="text-[9px] text-gray-400 hover:text-red-500 text-left">ログアウト</button>
+                </div>
+            </div>
+
+            <button onclick="updateApp()" class="w-full text-xs font-bold py-2 bg-blue-50 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors">
+                最新の状態に更新
+            </button>
+
+            <div id="sortable-settings" class="flex flex-col gap-4">
+                <div data-setting-key="swipe" class="flex justify-between items-center">
+                    <span class="text-xs font-bold text-gray-500 dark:text-gray-400">スワイプ操作</span>
+                    <label class="relative inline-flex items-center cursor-pointer scale-90">
+                        <input type="checkbox" id="swipe-toggle" class="sr-only toggle-input" onchange="toggleSwipeMode()">
+                        <div class="w-11 h-6 bg-gray-200 dark:bg-gray-600 peer-focus:outline-none rounded-full peer toggle-bg transition-colors duration-200">
+                            <div class="absolute top-[2px] left-[2px] bg-white dark:bg-gray-400 border-gray-300 dark:border-gray-500 border rounded-full h-5 w-5 transition-all toggle-circle shadow-sm"></div>
+                        </div>
+                    </label>
+                </div>
+                <div data-setting-key="speech" class="flex justify-between items-center">
+                    <span class="text-xs font-bold text-gray-500 dark:text-gray-400">単語の音声を再生</span>
+                    <label class="relative inline-flex items-center cursor-pointer scale-90">
+                        <input type="checkbox" id="speech-toggle" class="sr-only toggle-input" onchange="toggleSpeech()">
+                        <div class="w-11 h-6 bg-gray-200 dark:bg-gray-600 peer-focus:outline-none rounded-full peer toggle-bg transition-colors duration-200">
+                            <div class="absolute top-[2px] left-[2px] bg-white dark:bg-gray-400 border-gray-300 dark:border-gray-500 border rounded-full h-5 w-5 transition-all toggle-circle shadow-sm toggle-circle"></div>
+                        </div>
+                    </label>
+                </div>
+                <div data-setting-key="googleSpeech" class="flex justify-between items-center">
+                    <span class="text-xs font-bold text-gray-500 dark:text-gray-400">Google音声を使用</span>
+                    <label class="relative inline-flex items-center cursor-pointer scale-90">
+                        <input type="checkbox" id="google-speech-toggle" class="sr-only toggle-input" onchange="toggleGoogleSpeech()">
+                        <div class="w-11 h-6 bg-gray-200 dark:bg-gray-600 peer-focus:outline-none rounded-full peer toggle-bg transition-colors duration-200">
+                            <div class="absolute top-[2px] left-[2px] bg-white dark:bg-gray-400 border-gray-300 dark:border-gray-500 border rounded-full h-5 w-5 transition-all toggle-circle shadow-sm"></div>
+                        </div>
+                    </label>
+                </div>
+                <div data-setting-key="strict" class="flex justify-between items-center">
+                    <span class="text-xs font-bold text-gray-500 dark:text-gray-400">1秒判定モード</span>
+                    <label class="relative inline-flex items-center cursor-pointer scale-90">
+                        <input type="checkbox" id="mode-toggle" class="sr-only toggle-input" onchange="toggleMode()">
+                        <div class="w-11 h-6 bg-gray-200 dark:bg-gray-600 peer-focus:outline-none rounded-full peer toggle-bg transition-colors duration-200">
+                            <div class="absolute top-[2px] left-[2px] bg-white dark:bg-gray-400 border-gray-300 dark:border-gray-500 border rounded-full h-5 w-5 transition-all toggle-circle shadow-sm toggle-circle"></div>
+                        </div>
+                    </label>
+                </div>
+                <div data-setting-key="simple" class="flex justify-between items-center">
+                    <span class="text-xs font-bold text-gray-500 dark:text-gray-400">シンプル表示</span>
+                    <label class="relative inline-flex items-center cursor-pointer scale-90">
+                        <input type="checkbox" id="simple-toggle" class="sr-only toggle-input" onchange="toggleSimpleMode()">
+                        <div class="w-11 h-6 bg-gray-200 dark:bg-gray-600 peer-focus:outline-none rounded-full peer toggle-bg transition-colors duration-200">
+                            <div class="absolute top-[2px] left-[2px] bg-white dark:bg-gray-400 border-gray-300 dark:border-gray-500 border rounded-full h-5 w-5 transition-all toggle-circle shadow-sm toggle-circle"></div>
+                        </div>
+                    </label>
+                </div>
+                <div data-setting-key="dark" class="flex justify-between items-center">
+                    <span class="text-xs font-bold text-gray-500 dark:text-gray-400">ダークモード</span>
+                    <label class="relative inline-flex items-center cursor-pointer scale-90">
+                        <input type="checkbox" id="dark-toggle" class="sr-only toggle-input" onchange="toggleDarkMode()">
+                        <div class="w-11 h-6 bg-gray-200 dark:bg-gray-600 peer-focus:outline-none rounded-full peer toggle-bg transition-colors duration-200">
+                            <div class="absolute top-[2px] left-[2px] bg-white dark:bg-gray-400 border-gray-300 dark:border-gray-500 border rounded-full h-5 w-5 transition-all toggle-circle shadow-sm toggle-circle"></div>
+                        </div>
+                    </label>
+                </div>
+                <div data-setting-key="disableOk" class="flex justify-between items-center">
+                    <span class="text-xs font-bold text-gray-500 dark:text-gray-400">△を無効化</span>
+                    <label class="relative inline-flex items-center cursor-pointer scale-90">
+                        <input type="checkbox" id="disable-ok-toggle" class="sr-only toggle-input" onchange="toggleOkDisable()">
+                        <div class="w-11 h-6 bg-gray-200 dark:bg-gray-600 peer-focus:outline-none rounded-full peer toggle-bg transition-colors duration-200">
+                            <div class="absolute top-[2px] left-[2px] bg-white dark:bg-gray-400 border-gray-300 dark:border-gray-500 border rounded-full h-5 w-5 transition-all toggle-circle shadow-sm"></div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <hr class="border-gray-100 dark:border-gray-700 my-2">
+
+            <div class="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl">
+                <p class="text-[10px] font-bold text-gray-400 dark:text-gray-500 mb-2 uppercase tracking-widest">進行中の修行</p>
+                <div id="drill-list" class="flex flex-col gap-2 max-h-32 overflow-y-auto custom-scroll">
+                </div>
+            </div>
+
+            <hr class="border-gray-100 dark:border-gray-700">
+            
+            <button onclick="showHistoryList()" class="w-full flex items-center justify-center gap-2 bg-blue-50 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 text-xs font-bold py-3 rounded-xl hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors">
+                累積データを確認
+            </button>
+
+            <button onclick="resetToStandby()" class="w-full text-center text-xs text-red-400 hover:text-red-600 font-bold py-2 border border-red-100 dark:border-red-500/30 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors">
+                トップに戻る (セッションリセット)
+            </button>
+        </div>
+    </div>
+
+    <main class="flex-grow flex flex-col items-center justify-center w-full h-screen overflow-hidden relative" onclick="closeMenuIfOutside(event)">
+        
+        <button id="replay-speech-btn" class="hidden absolute top-4 right-16 z-50 w-12 h-12 rounded-full text-gray-400 hover:text-gray-600 hover:bg-white/80 dark:bg-gray-800/80 dark:hover:bg-gray-700 shadow-sm border border-gray-200 dark:border-gray-700 transition-all backdrop-blur-sm flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+            </svg>
+        </button>
+
+        <div id="app-container" class="w-full h-full flex flex-col justify-between absolute inset-0 z-30">
+           <div id="drill-status-bar" class="hidden w-full fixed top-0 left-0 z-50 hide-in-simple">
+                <div class="w-full h-1.5 bg-gray-200 dark:bg-gray-700">
+                    <div id="drill-progress" class="h-full bg-blue-500 transition-all duration-300" style="width: 0%"></div>
+                </div>
+            </div>
+            <input type="file" id="file-input" accept=".xlsx, .csv" 
+                class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-40" 
+                onchange="handleFileUpload(event)">
+            
+            <div id="start-click-area" onclick="showRangeModal()" class="hidden absolute inset-0 w-full h-full z-30 cursor-pointer bg-transparent"></div>
+
+            <div class="w-full pt-4 pointer-events-none hide-in-simple">
+                <div id="progress-text" class="text-center text-xs font-bold text-gray-400 dark:text-gray-500 mt-2 opacity-0 transition-opacity">Range: 0 - 0</div>
+            </div>
+
+            <div id="flashcard-area" class="flex-grow flex flex-col items-center justify-center p-4 word-enter pointer-events-none z-10">
+                <div class="text-center w-full max-w-4xl">
+                    <p id="word-id" class="text-gray-300 dark:text-gray-600 font-mono text-sm mb-4 hide-in-simple">#0</p>
+                    
+                    <div class="flex items-center justify-center gap-2">
+                        <h2 id="english-word" class="text-6xl md:text-8xl font-black text-gray-300 dark:text-gray-700 tracking-tighter leading-tight break-words select-none transition-colors">
+                            IMPORT<br>
+FILE
+                        </h2>
+
+                    </div>
+                    
+                    <div id="meaning-area" class="invisible opacity-0 transition-all duration-200 transform translate-y-4 -mt-4">
+                        <p id="main-meaning" class="text-3xl md:text-4xl font-bold text-red-600 dark:text-red-500 mb-2">意味</p>
+                        <p id="sub-meanings" class="text-lg text-gray-500 dark:text-gray-400 font-medium">補足情報</p>
+                    </div>
+                    
+                    <div id="file-info" class="hidden mt-4 hide-in-simple">
+                        <p class="text-sm font-bold text-gray-400 dark:text-gray-500" id="file-name-display"></p>
+                        <p class="text-xs text-gray-300 dark:text-gray-600 mt-1"></p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="guide-text" class="w-full p-4 text-center pb-8 opacity-0 transition-opacity pointer-events-none hide-in-simple">
+                <p class="text-xs text-gray-400 dark:text-gray-500 font-mono">← Bad | ↓ Ans | OK ↑ | Perfect →</p>
+            </div>
+            
+            <div id="mobile-tap-area" onclick="showMeaning()" class="absolute inset-0 z-0 cursor-pointer md:hidden hidden"></div>
+        </div>
+
+        <div id="range-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/80 backdrop-blur-sm p-4">
+            <div class="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-8 w-full max-w-sm text-center modal-enter">
+                <h2 class="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">学習設定</h2>
+                
+                <div class="flex items-center justify-center gap-4 mb-8 mt-6">
+                    <div class="flex flex-col w-24">
+                        <label class="text-[10px] font-bold text-gray-400 dark:text-gray-500 mb-1">START</label>
+                        <input type="number" id="range-start" class="text-center text-2xl font-bold border-b-2 border-gray-200 dark:border-gray-600 focus:border-blue-500 dark:focus:border-blue-400 outline-none py-2 bg-transparent" value="1">
+                    </div>
+                    <span class="text-gray-300 dark:text-gray-500 text-xl mt-4">~
+                    </span><div class="flex flex-col w-24">
+                        <label class="text-[10px] font-bold text-gray-400 dark:text-gray-500 mb-1">END</label>
+                        <input type="number" id="range-end" class="text-center text-2xl font-bold border-b-2 border-gray-200 dark:border-gray-600 focus:border-blue-500 dark:focus:border-blue-400 outline-none py-2 bg-transparent" value="1900">
+                    </div>
+                </div>
+                
+                <div class="mb-8 flex justify-center">
+                    <label class="flex items-center gap-3 cursor-pointer group select-none">
+                        <div class="relative">
+                            <input type="checkbox" id="random-check" class="sr-only peer">
+                            <div class="w-10 h-6 bg-gray-200 rounded-full peer-focus:outline-none peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 dark:bg-gray-600 dark:peer-checked:bg-blue-600 dark:after:bg-gray-400 dark:after:border-gray-500"></div>
+                        </div>
+                        <span class="text-sm font-bold text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">ランダムに出題</span>
+                    </label>
+                </div>
+                
+                <div class="flex flex-col gap-3">
+                    <button onclick="startRangeSession()" class="w-full py-4 bg-gray-900 dark:bg-gray-200 text-white dark:text-gray-900 font-bold rounded-xl shadow-lg hover:bg-black dark:hover:bg-white transition-transform active:scale-95">スタート</button>
+                    <div class="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+                        <button onclick="createDrillFromRange()" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition-transform active:scale-95 shadow-lg flex items-center justify-center gap-2">
+                            <span class="text-xs">🔥 修行(Drill)として開始</span>
+                        </button>
+                        <p class="text-[9px] text-gray-400 dark:text-gray-500 text-center mt-1">※完遂するまで消えないタスクを作成します</p>
+                    </div>
+                    <button onclick="closeModalAndReset()" class="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 py-2">キャンセル</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="history-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/80 backdrop-blur-sm p-4">
+            <div class="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl w-full max-w-2xl h-[80vh] flex flex-col modal-enter overflow-hidden">
+                <div class="p-6 border-b dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800">
+                    <h2 class="text-lg font-bold text-gray-800 dark:text-gray-100">総合学習データ</h2>
+                    <button onclick="closeHistoryModal()" class="text-gray-400 hover:text-gray-600 dark:text-gray-300 text-2xl">×</button>
+                </div>
+                <div class="flex-grow overflow-y-auto custom-scroll p-0">
+                    <table class="w-full text-left text-sm border-collapse">
+                        <thead class="bg-gray-100 dark:bg-gray-900 text-gray-500 dark:text-gray-400 sticky top-0 z-10 font-bold">
+                            <tr>
+                                <th class="p-3 w-16 text-center">ID</th>
+                                <th class="p-3">単語</th>
+                                <th class="p-3 w-16 text-center text-green-600 dark:text-green-500">〇</th>
+                                <th class="p-3 w-16 text-center text-yellow-600 dark:text-yellow-500">△</th>
+                                <th class="p-3 w-16 text-center text-gray-500 dark:text-gray-400">×</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-table-body" class="divide-y dark:divide-gray-700">
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="p-4 border-t border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800 rounded-b-2xl">
+                    
+                    <button onclick="resetNormalStats()" class="text-red-400 hover:text-red-600 font-bold text-xs py-2 px-2 transition-colors flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        累積リセット
+                    </button>
+        
+                    <div class="flex gap-2">
+                        <button onclick="exportStatsToExcel()" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition-colors text-xs flex items-center gap-1">
+                            Excel出力
+                        </button>
+                        <button onclick="closeHistoryModal()" class="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-200 font-bold py-2 px-4 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors text-xs">
+                            閉じる
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="drill-word-list-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/80 backdrop-blur-sm p-4">
+            <div class="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col modal-enter overflow-hidden">
+                <div class="p-6 border-b dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800/50 flex-shrink-0">
+                    <div>
+                        <h2 id="drill-word-list-title" class="text-lg font-bold text-gray-800 dark:text-gray-100">修行の管理</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">単語をドラッグ＆ドロップで「完了」「未完了」に移動できます。</p>
+                    </div>
+                    <button onclick="closeDrillWordListModal()" class="text-gray-400 hover:text-gray-600 dark:text-gray-300 text-2xl">×</button>
+                </div>
+                
+                                <div class="flex-grow overflow-hidden flex p-4 gap-4">
+                                    <!-- 未完了テーブル -->
+                                    <div class="flex-1 flex flex-col overflow-hidden">
+                                        <h3 class="font-bold text-yellow-600 dark:text-yellow-500 mb-2 text-sm flex items-center gap-2 flex-shrink-0">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.934l-6.75 12.01a1 1 0 001.664 1.25l6.75-12.01a1 1 0 00-.642-1.8z" clip-rule="evenodd" /><path d="M10.13 4.25a1 1 0 00-1.28 1.51l6.75 12.01a1 1 0 001.664-1.25l-6.75-12.01a1 1 0 00-.384-.26z" /></svg>
+                                            <span>未完了 (<span id="incomplete-count">0</span>)</span>
+                                        </h3>
+                                        <div class="flex-grow overflow-y-auto custom-scroll border dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800">
+                                            <table class="w-full text-left text-sm">
+                                                <thead class="bg-gray-50 dark:bg-gray-900/50 text-gray-500 dark:text-gray-400 font-bold text-xs sticky top-0 z-10">
+                                                    <tr>
+                                                        <th class="p-2 w-16 text-center border-b dark:border-gray-700">ID</th>
+                                                        <th class="p-2 border-b dark:border-gray-700">単語</th>
+                                                        <th class="p-2 border-b dark:border-gray-700">意味</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="incomplete-tbody">
+                                                    <!-- JSで生成 -->
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                        
+                                    <!-- 完了テーブル -->
+                                    <div class="flex-1 flex flex-col overflow-hidden">
+                                        <h3 class="font-bold text-green-600 dark:text-green-500 mb-2 text-sm flex items-center gap-2 flex-shrink-0">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>
+                                            <span>完了 (<span id="completed-count">0</span>)</span>
+                                        </h3>
+                                        <div class="flex-grow overflow-y-auto custom-scroll border dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800">
+                                            <table class="w-full text-left text-sm">
+                                                <thead class="bg-gray-50 dark:bg-gray-900/50 text-gray-500 dark:text-gray-400 font-bold text-xs sticky top-0 z-10">
+                                                    <tr>
+                                                        <th class="p-2 w-16 text-center border-b dark:border-gray-700">ID</th>
+                                                        <th class="p-2 border-b dark:border-gray-700">単語</th>
+                                                        <th class="p-2 border-b dark:border-gray-700">意味</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="completed-tbody">
+                                                    <!-- JSで生成 -->
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>                <div class="p-4 border-t border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800/50 rounded-b-2xl flex-shrink-0">
+                    <p class="text-[10px] text-gray-400 dark:text-gray-500">変更は自動で保存されます</p>
+                    <div class="flex gap-2">
+                        <button id="start-drill-from-list-btn" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors text-xs flex items-center gap-1">
+                            この修行を開始
+                        </button>
+                        <button onclick="closeDrillWordListModal()" class="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-200 font-bold py-2 px-4 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors text-xs">
+                            閉じる
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="summary" class="hidden w-full max-w-2xl bg-white dark:bg-gray-800 rounded-3xl shadow-2xl border dark:border-gray-700 overflow-hidden flex flex-col max-h-[85vh] z-50 mx-4">
+            <div class="p-6 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-center">
+                <h3 class="font-bold text-xl text-gray-800 dark:text-gray-100">Mission Complete</h3>
+                <div id="summary-counts" class="flex justify-center gap-6 mt-3 text-lg font-bold">
+                    <span class="text-green-600 dark:text-green-500">〇: <span id="count-perfect">0</span></span>
+                    ${appData.isOkDisabled ? '' : '<span class="text-yellow-600 dark:text-yellow-500">△: <span id="count-ok">0</span></span>'}
+                    <span class="text-gray-400 dark:text-gray-500">×: <span id="count-bad">0</span></span>
+                </div>
+            </div>
+            <div class="flex-grow overflow-y-auto custom-scroll">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-gray-100 dark:bg-gray-900 text-xs text-gray-500 dark:text-gray-400 sticky top-0 z-10">
+                        <tr><th class="p-3 w-14 text-center">ID</th><th class="p-3">Word</th><th class="p-3 w-20 text-center">Res</th></tr>
+                    </thead>
+                    <tbody id="result-table-body" class="text-sm divide-y divide-gray-100 dark:divide-gray-700"></tbody>
+                </table>
+            </div>
+            <div class="p-6 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex flex-col gap-3">
+                <button onclick="retryWeak()" class="w-full py-3 bg-yellow-50 dark:bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 font-bold rounded-xl border border-yellow-200 dark:border-yellow-500/20 hover:bg-yellow-100 dark:hover:bg-yellow-500/20 transition-colors flex items-center justify-center gap-2">
+                    <span>💪</span> 復習する (△・× のみ)
+                </button>
+                <button onclick="resetToStandby()" class="w-full py-3 bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-200 font-bold rounded-xl border dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+                    終了してトップへ
+                </button>
+            </div>
+        </div>
+
+        <div id="notification-message" class="hidden fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-red-100 text-red-600 px-6 py-3 rounded-full shadow-lg font-bold text-sm z-50"></div>
+    </main>
+    <script>
+    let voices = [];
+    function loadVoices() {
+        voices = window.speechSynthesis.getVoices().filter(v => v.lang.startsWith('en'));
+    }
+    // ブラウザによっては非同期で音声リストを読み込むため、準備ができてから取得する
+    if (typeof window.speechSynthesis !== 'undefined' && window.speechSynthesis.onvoiceschanged !== undefined) {
+        window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+
+    function speakWord(text) {
+        if (!text || typeof window.speechSynthesis === 'undefined') return;
+
+        const originalSpeak = () => {
+            if (voices.length === 0) {
+                loadVoices();
+            }
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            if (voices.length > 0) {
+                utterance.voice = voices.find(v => v.lang === 'en-US') || voices.find(v => v.lang === 'en-GB') || voices[0];
+            }
+            utterance.lang = 'en-US';
+            utterance.rate = 0.9;
+            window.speechSynthesis.speak(utterance);
+        };
+
+        if (appData.isGoogleSpeechEnabled) {
+            try {
+                const audio = new Audio(`https://ssl.gstatic.com/dictionary/static/sounds/oxford/${text.toLowerCase().replace(/ /g, '_')}--_us_1.mp3`);
+                audio.onerror = () => {
+                    console.log("Audio fallback to SpeechSynthesis.");
+                    originalSpeak();
+                };
+                audio.play();
+            } catch (e) {
+                console.error("Audio playback failed, falling back.", e);
+                originalSpeak();
+            }
+        } else {
+            originalSpeak();
+        }
+    }
+    // ★ここから追加：Firebaseの設定とロジック
+
+    // 1. あなたのプロジェクトの設定（コンソールからコピーした値を入れてください）
+    const firebaseConfig = {
+  apiKey: "AIzaSyDNVmXKfKS36YhOVzM-gCCaYi-2UHwML4g",
+  authDomain: "wordapp-ce055.firebaseapp.com",
+  projectId: "wordapp-ce055",
+  storageBucket: "wordapp-ce055.firebasestorage.app",
+  messagingSenderId: "626466182008",
+  appId: "1:626466182008:web:b301dc310a21ed89286e8d"
+};
+
+    // 2. Firebaseを起動
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+    // PWAの更新チェック（ホーム画面に追加した人向け）
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                for(let registration of registrations) {
+                    registration.update(); // サーバーの最新状態を確認
+                }
+            });
+        });
+    }
+
+    // 更新があったら画面を自動リロードする（反映を確実にするため）
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!refreshing) {
+            window.location.reload();
+            refreshing = true;
+        }
+    });
+    let currentUser = null;
+
+    // 3. ログイン状態の監視（ログインしたら自動でデータを取ってくる）
+    auth.onAuthStateChanged(user => {
+        currentUser = user;
+        const btn = document.getElementById('btn-login');
+        const info = document.getElementById('user-info');
+        
+        if (user) {
+            // ログイン中
+            btn.classList.add('hidden');
+            info.classList.remove('hidden');
+            document.getElementById('user-name').innerText = user.displayName || "User";
+            fetchCloudStats(); // ★ここでクラウドからデータ取得！
+        } else {
+            // 未ログイン
+            btn.classList.remove('hidden');
+            info.classList.add('hidden');
+        }
+    });
+
+    // 4. ログイン・ログアウト関数
+    function login() {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        auth.signInWithPopup(provider).catch(e => alert(e.message));
+    }
+    function logout() {
+        if(confirm("ログアウトしますか？")) auth.signOut();
+    }
+
+    // 5. クラウドへ保存（成績データ wordStats だけを送る）
+    function syncCloudStats() {
+        if (!currentUser) return;
+        
+        // 著作権対策：単語テキストは送らず、IDごとの成績だけ保存
+        db.collection('users').doc(currentUser.uid).collection('stats').doc('v1').set({
+            wordStats: appData.wordStats,
+            drillStats: appData.drillStats,
+            lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true }).then(() => {
+            console.log("Cloud synced");
+        });
+    }
+
+    // 6. クラウドから取得
+    function fetchCloudStats() {
+        if (!currentUser) return;
+        db.collection('users').doc(currentUser.uid).collection('stats').doc('v1').get().then(doc => {
+            if (doc.exists) {
+                const cloudData = doc.data();
+                // クラウドのデータをローカルに統合
+                appData.wordStats = { ...appData.wordStats, ...(cloudData.wordStats || {}) };
+                appData.drillStats = { ...appData.drillStats, ...(cloudData.drillStats || {}) };
+                saveToStorage(false); // ローカルにも保存（ループ防止でsyncはしない）
+                showInfo("クラウドのデータを同期しました！");
+            }
+        });
+    }
+    // ★ここまで追加
+
+    // --- 状態管理 (以下、元のコードが続きます) ---
+    const STORE_KEY = 'target1900_file_data_v5';
+    const SWIPE_MODE_KEY = 'target1900_swipe_mode_v1';
+        let appData = {
+            originalData: null,
+            words: [],
+            fileName: "",
+            
+            // 累積統計データ
+            wordStats: {},
+            drillStats: {},
+            
+            // 設定
+            isSimpleMode: false,
+            isSwipeMode: false,
+            isOkDisabled: false,
+            isStrictMode: false,
+            isSpeechEnabled: false,
+            isGoogleSpeechEnabled: true, // ★追加
+            isDarkMode: false, // ★追加
+            settingsOrder: [], // ★追加: 設定の並び順
+
+            // ★追加：修行(ドリル)関連
+            drills: [],          
+            currentDrillId: null,
+
+            // セッション
+            queue: [],
+            queueIndex: 0,
+            sessionResults: [],
+            rangeStart: 1,
+            rangeEnd: 1900
+        };
+
+        let results = { perfect: 0, ok: 0, bad: 0 };
+        let startTime, answerTime = 0;
+        let isTransitioning = false, isAnswerRevealed = false, isStrictMode = false;
+
+        // --- DOM要素 ---
+        const elBody = document.getElementById('body-bg');
+        const elRangeModal = document.getElementById('range-modal');
+        const elHistoryModal = document.getElementById('history-modal');
+        const elAppContainer = document.getElementById('app-container');
+        const elSummary = document.getElementById('summary');
+        const elSettingsContainer = document.getElementById('settings-container');
+        const elMenuContent = document.getElementById('menu-content');
+        const elFileInput = document.getElementById('file-input');
+        const elStartClick = document.getElementById('start-click-area');
+        
+        const elWord = document.getElementById('english-word');
+        const elId = document.getElementById('word-id');
+        const elMainMeaning = document.getElementById('main-meaning');
+        const elSubMeanings = document.getElementById('sub-meanings');
+        const elMeaningArea = document.getElementById('meaning-area');
+        const elFlashcardArea = document.getElementById('flashcard-area');
+        const elProgressText = document.getElementById('progress-text');
+        const elGuideText = document.getElementById('guide-text');
+        const elMobileTap = document.getElementById('mobile-tap-area');
+        const elFileInfo = document.getElementById('file-info');
+        const elFileName = document.getElementById('file-name-display');
+        const elNotification = document.getElementById('notification-message');
+        const elReplayBtn = document.getElementById('replay-speech-btn');
+        const elSimpleToggle = document.getElementById('simple-toggle');
+
+        let sortableIncomplete = null;
+        let sortableCompleted = null;
+
+        // --- 初期化 ---
+        window.onload = () => {
+            loadFromStorage();
+            initSortable(); // ★追加
+        };
+
+
+        function initSortable() {
+            const el = document.getElementById('sortable-settings');
+            new Sortable(el, {
+                animation: 150,
+                onEnd: function (evt) {
+                    const newOrder = Array.from(el.children).map(item => item.dataset.settingKey);
+                    appData.settingsOrder = newOrder;
+                    saveToStorage(false);
+                }
+            });
+        }
+
+
+
+        function loadFromStorage() {
+            try {
+                // --- スマホモードは個別で読み込む ---
+                const savedSwipeMode = localStorage.getItem(SWIPE_MODE_KEY);
+                appData.isSwipeMode = (savedSwipeMode === 'true');
+                document.getElementById('swipe-toggle').checked = appData.isSwipeMode;
+                if (appData.isSwipeMode) document.body.style.overflow = 'hidden';
+
+
+                const saved = localStorage.getItem(STORE_KEY);
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    if (parsed.words && parsed.words.length > 0) {
+                        appData.words = parsed.words;
+                        appData.originalData = parsed.originalData;
+                        appData.fileName = parsed.fileName;
+                        appData.wordStats = parsed.wordStats || {};
+                        appData.drillStats = parsed.drillStats || {};
+                        appData.drills = parsed.drills || [];
+
+                        // --- 設定の復元 ---
+                        appData.isSimpleMode = parsed.isSimpleMode || false;
+                        document.getElementById('simple-toggle').checked = appData.isSimpleMode;
+                        if (appData.isSimpleMode) elBody.classList.add('simple-mode');
+
+                        appData.isOkDisabled = parsed.isOkDisabled || false;
+                        document.getElementById('disable-ok-toggle').checked = appData.isOkDisabled;
+                        
+                        appData.isStrictMode = parsed.isStrictMode || false;
+                        document.getElementById('mode-toggle').checked = appData.isStrictMode;
+                        isStrictMode = appData.isStrictMode; // グローバル変数にも反映
+
+                        appData.isSpeechEnabled = parsed.isSpeechEnabled || false;
+                        document.getElementById('speech-toggle').checked = appData.isSpeechEnabled;
+
+                        appData.isGoogleSpeechEnabled = parsed.isGoogleSpeechEnabled !== false; // デフォルトtrue
+                        document.getElementById('google-speech-toggle').checked = appData.isGoogleSpeechEnabled;
+                        
+                        // ★追加：ダークモードの復元
+                        appData.isDarkMode = parsed.isDarkMode || false;
+                        document.getElementById('dark-toggle').checked = appData.isDarkMode;
+                        if (appData.isDarkMode) {
+                            document.documentElement.classList.add('dark');
+                        } else {
+                            document.documentElement.classList.remove('dark');
+                        }
+
+                        // ★追加：設定の並び順を復元
+                        appData.settingsOrder = parsed.settingsOrder || [];
+                        if (appData.settingsOrder.length > 0) {
+                            const container = document.getElementById('sortable-settings');
+                            const items = Array.from(container.children);
+                            const sortedItems = appData.settingsOrder.map(key => {
+                                return items.find(item => item.dataset.settingKey === key);
+                            }).filter(Boolean); // nullを除外
+                            
+                            // 存在しないキーが保存されていた場合も考慮し、残りのアイテムを追加
+                            const remainingItems = items.filter(item => !appData.settingsOrder.includes(item.dataset.settingKey));
+                            
+                            sortedItems.concat(remainingItems).forEach(item => container.appendChild(item));
+                        }
+
+                        // --- 修行セッションの復元 ---
+                        if (parsed.currentDrillId && parsed.queue && parsed.queue.length > 0 && parsed.queueIndex < parsed.queue.length) {
+                            appData.currentDrillId = parsed.currentDrillId;
+                            appData.queue = parsed.queue;
+                            appData.queueIndex = parsed.queueIndex;
+                            appData.rangeStart = parsed.rangeStart;
+                            appData.rangeEnd = parsed.rangeEnd;
+                            
+                            elFileInput.classList.add('hidden');
+                            updateDrillUI();
+                            startPlay();
+                            showInfo("前回の修行を再開します。");
+                        } else {
+                            switchToStandbyMode();
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error("Load Error:", e);
+                localStorage.removeItem(STORE_KEY);
+            }
+        }
+
+       // 引数に doCloudSync = true を追加してください
+    function saveToStorage(doCloudSync = true) {
+        const dataToSave = {
+            words: appData.words,
+            originalData: appData.originalData,
+            fileName: appData.fileName,
+            wordStats: appData.wordStats,
+            isSimpleMode: appData.isSimpleMode,
+            isOkDisabled: appData.isOkDisabled,
+            isStrictMode: appData.isStrictMode,
+            isSpeechEnabled: appData.isSpeechEnabled,
+            isGoogleSpeechEnabled: appData.isGoogleSpeechEnabled, // ★追加
+            isDarkMode: appData.isDarkMode, // ★追加
+            settingsOrder: appData.settingsOrder, // ★追加
+            currentDrillId: appData.currentDrillId,
+            drills: appData.drills,
+            queue: appData.queue,
+            queueIndex: appData.queueIndex,
+            rangeStart: appData.rangeStart,
+            rangeEnd: appData.rangeEnd
+        };
+        localStorage.setItem(STORE_KEY, JSON.stringify(dataToSave));
+        
+        // ★この3行を追加：ログインしていればクラウドにも保存
+        if (doCloudSync && typeof syncCloudStats === 'function') {
+            syncCloudStats();
+        }
+    }
+
+        function resetToStandby() {
+            // セッション情報をクリア
+            appData.currentDrillId = null;
+            appData.queue = [];
+            appData.queueIndex = 0;
+            saveToStorage(false); //リセットした状態を保存
+            updateDrillUI();
+
+            // トップ画面へ戻る
+            elRangeModal.classList.add('hidden');
+            switchToStandbyMode();
+            
+            // メニューが開いていれば閉じる
+            if (elMenuContent.classList.contains('menu-visible')) {
+                toggleMenu();
+            }
+        }
+
+        // --- 画面遷移 ---
+        function switchToStandbyMode() {
+            elId.innerText = "";
+            elWord.innerHTML = "TAP TO<br>START";
+            elWord.className = "text-6xl md:text-8xl font-black tracking-tighter leading-tight break-words select-none transition-colors text-blue-500 dark:text-blue-400 pulse-text";
+            
+            elMainMeaning.innerText = "";
+            elSubMeanings.innerText = "";
+            elMeaningArea.classList.add('invisible');
+            
+            elFileInfo.classList.add('hidden');
+            elFileName.innerText = "";
+
+            elFileInput.classList.add('hidden');
+            elStartClick.classList.remove('hidden');
+            
+            elSummary.classList.add('hidden');
+            elAppContainer.classList.remove('hidden');
+            elGuideText.classList.add('opacity-0', 'pointer-events-none');
+            elProgressText.classList.add('opacity-0');
+            elMobileTap.classList.add('hidden');
+            elReplayBtn.classList.add('hidden');
+        }
+
+        function closeSessionToStandby() {
+            elSummary.classList.add('hidden');
+            switchToStandbyMode();
+        }
+        
+        function closeModalAndReset() {
+            elRangeModal.classList.add('hidden');
+        }
+
+        // --- 1. ファイル読み込み ---
+        function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, {type: 'array', cellDates: true});
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(sheet, {header: 1, defval: "", raw: false});
+                    
+                    if (jsonData.length < 2) throw new Error("データが見つかりません");
+
+                    appData.originalData = jsonData;
+                    appData.fileName = file.name;
+                    appData.wordStats = {}; // ファイルが変われば統計もリセット
+                    parseWordsFromData(jsonData);
+                    
+                    saveToStorage(); 
+                    switchToStandbyMode(); 
+
+                } catch (err) {
+                    showError(err.message);
+                    elFileInput.value = '';
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function parseWordsFromData(rows) {
+            appData.words = [];
+            for (let i = 1; i < rows.length; i++) {
+                const row = rows[i];
+                if (!row[1] || String(row[1]).trim() === "") continue; 
+                appData.words.push({
+                    id: parseInt(row[0]) || i, 
+                    word: row[1],
+                    meaning: row[2] || "",
+                    sub: row[3] || "",
+                    originalIndex: i 
+                });
+            }
+            if (appData.words.length === 0) throw new Error("有効な単語データがありません");
+        }
+
+        // --- 2. 範囲設定 ---
+        function showRangeModal() {
+            elRangeModal.classList.remove('hidden');
+            if(appData.words.length > 0) {
+                document.getElementById('range-start').value = appData.words[0].id;
+                document.getElementById('range-end').value = appData.words[appData.words.length - 1].id;
+            }
+        }
+
+        function startRangeSession() {
+            const startId = parseInt(document.getElementById('range-start').value);
+            const endId = parseInt(document.getElementById('range-end').value);
+            const isRandom = document.getElementById('random-check').checked;
+
+            const startIndex = appData.words.findIndex(w => w.id >= startId);
+
+            if (startIndex === -1) {
+                showError("範囲が無効です (開始ID)");
+                return;
+            }
+
+            let indices = [];
+            for (let i = startIndex; i < appData.words.length; i++) {
+                if (appData.words[i].id <= endId) {
+                    indices.push(i);
+                } else {
+                    break; 
+                }
+            }
+
+            if (indices.length === 0) {
+                showError("範囲が無効です (単語がありません)");
+                return;
+            }
+
+            if (isRandom) {
+                for (let i = indices.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [indices[i], indices[j]] = [indices[j], indices[i]];
+                }
+            }
+
+            appData.rangeStart = startId;
+            appData.rangeEnd = endId;
+            appData.queue = indices;
+            appData.queueIndex = 0;
+            appData.sessionResults = new Array(appData.words.length).fill(null);
+            
+            // 通常セッション開始時にドリル情報をクリア
+            appData.currentDrillId = null;
+            updateDrillUI();
+
+            elRangeModal.classList.add('hidden');
+            elStartClick.classList.add('hidden');
+            startPlay();
+        }
+
+        function retryWeak() {
+            let weakIndices = [];
+            appData.sessionResults.forEach((res, idx) => {
+                if (res === '△' || res === '×') weakIndices.push(idx); 
+            });
+
+            if(weakIndices.length === 0) {
+                alert("復習する単語がありません");
+                return;
+            }
+
+            appData.queue = weakIndices;
+            appData.queueIndex = 0;
+            
+            elSummary.classList.add('hidden');
+            elAppContainer.classList.remove('hidden');
+            startPlay();
+        }
+
+        // --- 3. プレイ画面 ---
+        function startPlay() {
+            elFlashcardArea.classList.remove('pointer-events-none');
+            elGuideText.classList.remove('opacity-0', 'pointer-events-none');
+            elGuideText.classList.add('opacity-30', 'hover:opacity-100');
+            elProgressText.classList.remove('opacity-0');
+            elMobileTap.classList.remove('hidden');
+            
+            elWord.className = "text-6xl md:text-8xl font-black tracking-tighter leading-tight break-words select-none transition-colors text-gray-900 dark:text-gray-100";
+            elFileInfo.classList.add('hidden');
+            
+            window.focus();
+            initCard();
+        }
+
+        function initCard() {
+            isTransitioning = false;
+            isAnswerRevealed = false;
+            
+            elMeaningArea.classList.add('invisible', 'opacity-0', 'translate-y-4');
+            elMeaningArea.classList.remove('translate-y-0');
+
+            const wordIndex = appData.queue[appData.queueIndex];
+            const word = appData.words[wordIndex];
+
+            elId.innerText = `#${word.id}`;
+            elWord.innerHTML = word.word;
+            elMainMeaning.innerText = word.meaning;
+            elSubMeanings.innerText = word.sub;
+
+            if (appData.currentDrillId) {
+                const drill = appData.drills.find(d => d.id === appData.currentDrillId);
+                const title = drill ? drill.title : "Drill";
+                elProgressText.innerText = `${title} (${appData.queueIndex + 1}/${appData.queue.length})`;
+            } else {
+                elProgressText.innerText = `Range: ${appData.rangeStart} - ${appData.rangeEnd} (${appData.queueIndex + 1}/${appData.queue.length})`;
+            }
+            
+            // フラッシュエフェクト用のクラスのみを削除し、テーマ関連のクラスは維持する
+            elBody.classList.remove('flash-perfect', 'flash-ok', 'flash-bad');
+
+            elFlashcardArea.classList.remove('word-enter');
+            void elFlashcardArea.offsetWidth; 
+            elFlashcardArea.classList.add('word-enter');
+
+            startTime = Date.now();
+
+            if (appData.isSpeechEnabled) {
+                speakWord(word.word);
+                elReplayBtn.classList.remove('hidden');
+            } else {
+                elReplayBtn.classList.add('hidden');
+            }
+
+            elReplayBtn.onclick = () => speakWord(word.word);
+        }
+
+        function showMeaning() {
+            if (isAnswerRevealed || isTransitioning) return;
+            answerTime = (Date.now() - startTime) / 1000;
+            isAnswerRevealed = true;
+            elMeaningArea.classList.remove('invisible', 'opacity-0', 'translate-y-4');
+            elMeaningArea.classList.add('translate-y-0');
+        }
+
+        function handleResult(type) {
+            if (isTransitioning) return;
+
+            if (appData.isOkDisabled && type === 'ok') {
+                type = 'bad';
+            }
+
+            if (!isAnswerRevealed) showMeaning();
+
+            isTransitioning = true;
+            if (isStrictMode && type === 'perfect' && answerTime > 1.0) type = 'ok';
+
+            results[type]++;
+            let symbol = "×";
+            if (type === 'perfect') symbol = "〇";
+            if (type === 'ok') symbol = "△";
+            
+            const currentIndex = appData.queue[appData.queueIndex];
+            const word = appData.words[currentIndex];
+            const wordId = String(word.id);
+
+            appData.sessionResults[currentIndex] = symbol;
+            
+            if (appData.currentDrillId) {
+                if (!appData.drillStats[wordId]) appData.drillStats[wordId] = { p:0, o:0, b:0 };
+                if (type === 'perfect') appData.drillStats[wordId].p++;
+                else if (type === 'ok') appData.drillStats[wordId].o++;
+                else appData.drillStats[wordId].b++;
+            } else {
+                if (!appData.wordStats[wordId]) appData.wordStats[wordId] = { p:0, o:0, b:0 };
+                if (type === 'perfect') appData.wordStats[wordId].p++;
+                else if (type === 'ok') appData.wordStats[wordId].o++;
+                else appData.wordStats[wordId].b++;
+            }
+
+            if (appData.currentDrillId) {
+                const drill = appData.drills.find(d => d.id === appData.currentDrillId);
+                
+                if (drill) {
+                    if (type === 'perfect') {
+                        drill.remainingIds = drill.remainingIds.filter(id => id !== wordId);
+                        
+                        if (auth.currentUser) {
+                            db.collection('users').doc(auth.currentUser.uid)
+                              .collection('drills').doc(appData.currentDrillId)
+                              .update({ remainingIds: drill.remainingIds });
+                        }
+
+                        if (drill.remainingIds.length === 0) {
+                            alert("修行完了！タスクを達成しました！");
+                            appData.currentDrillId = null;
+                            resetToStandby();
+                            return;
+                        }
+                    } else {
+                        appData.queue.push(currentIndex);
+                    }
+                    updateDrillUI();
+                }
+            }
+
+            appData.queueIndex++;
+
+            if (type === 'perfect') elBody.classList.add('flash-perfect');
+            else if (type === 'ok') elBody.classList.add('flash-ok');
+            else elBody.classList.add('flash-bad');
+            
+            saveToStorage(false);
+
+            // 次のカードに移る前に、あらかじめ意味エリアを非表示にする
+            elMeaningArea.classList.add('invisible', 'opacity-0');
+
+            setTimeout(() => { 
+                if (appData.queueIndex < appData.queue.length) {
+                    initCard(); 
+                } else {
+                     if (!appData.currentDrillId) showSummary();
+                     else resetToStandby();
+                }
+            }, 400); 
+        }
+
+        // --- 4. リザルト ---
+        function showSummary() {
+            elAppContainer.classList.add('hidden');
+            elSummary.classList.remove('hidden');
+            
+            let p=0, o=0, b=0;
+            const tbody = document.getElementById('result-table-body');
+            tbody.innerHTML = '';
+
+            appData.words.forEach((w, i) => {
+                const res = appData.sessionResults[i];
+                if (res) {
+                    if (res === '〇') p++; else if (res === '△') o++; else if (res === '×') b++;
+                    
+                    const tr = document.createElement('tr');
+                    let colorClass = "text-gray-400 dark:text-gray-500";
+                    if (res === '〇') colorClass = "text-green-600 dark:text-green-500 font-bold";
+                    if (res === '△') colorClass = "text-yellow-600 dark:text-yellow-500 font-bold";
+                    if (res === '×') colorClass = "text-red-400 dark:text-red-500 font-bold";
+
+                    tr.innerHTML = `<td class="p-3 text-center border-b dark:border-gray-700 text-gray-400 dark:text-gray-500 font-mono">${w.id}</td><td class="p-3 border-b dark:border-gray-700 font-bold text-lg dark:text-gray-100">${w.word}</td><td class="p-3 text-center border-b dark:border-gray-700 ${colorClass} text-xl">${res}</td>`;
+                    tbody.appendChild(tr);
+                }
+            });
+
+            document.getElementById('count-perfect').innerText = p;
+            if (!appData.isOkDisabled) {
+                document.getElementById('count-ok').innerText = o;
+            }
+            document.getElementById('count-bad').innerText = b;
+        }
+
+        // --- 履歴リスト ---
+        function showHistoryList() {
+            const tbody = document.getElementById('history-table-body');
+            tbody.innerHTML = '';
+            
+            const headerOkColumn = appData.isOkDisabled ? '' : '<th class="p-3 w-16 text-center text-yellow-600 dark:text-yellow-500">△</th>';
+            elHistoryModal.querySelector('thead tr').innerHTML = `
+                <th class="p-3 w-16 text-center">ID</th>
+                <th class="p-3">単語</th>
+                <th class="p-3 w-16 text-center text-green-600 dark:text-green-500">〇</th>
+                ${headerOkColumn}
+                <th class="p-3 w-16 text-center text-gray-500 dark:text-gray-400">×</th>
+            `;
+
+            appData.words.forEach(w => {
+                const normalStat = appData.wordStats[w.id] || { p:0, o:0, b:0 };
+                const drillStat = appData.drillStats[w.id] || { p:0, o:0, b:0 };
+                const totalStat = {
+                    p: normalStat.p + drillStat.p,
+                    o: normalStat.o + drillStat.o,
+                    b: normalStat.b + drillStat.b
+                };
+                
+                const tr = document.createElement('tr');
+                
+                const okColumn = appData.isOkDisabled ? '' : `<td class="p-3 text-center border-b dark:border-gray-700 text-yellow-600 dark:text-yellow-500 font-bold bg-yellow-50 dark:bg-yellow-500/10">${totalStat.o || '-'}</td>`;
+
+                tr.innerHTML = `
+                    <td class="p-3 text-center border-b dark:border-gray-700 text-gray-400 dark:text-gray-500 font-mono">${w.id}</td>
+                    <td class="p-3 border-b dark:border-gray-700 font-bold text-gray-800 dark:text-gray-100">${w.word}</td>
+                    <td class="p-3 text-center border-b dark:border-gray-700 text-green-600 dark:text-green-500 font-bold bg-green-50 dark:bg-green-500/10">${totalStat.p || '-'}</td>
+                    ${okColumn}
+                    <td class="p-3 text-center border-b dark:border-gray-700 text-gray-500 dark:text-gray-400 font-bold bg-gray-50 dark:bg-gray-700/50">${totalStat.b || '-'}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            elHistoryModal.classList.remove('hidden');
+            if (elMenuContent.classList.contains('menu-visible')) {
+                toggleMenu();
+            }
+        }
+
+        function closeHistoryModal() {
+            elHistoryModal.classList.add('hidden');
+        }
+
+        function showDrillWordList(drillId) {
+            const drill = appData.drills.find(d => d.id === drillId);
+            if (!drill) return;
+
+            if (sortableIncomplete) sortableIncomplete.destroy();
+            if (sortableCompleted) sortableCompleted.destroy();
+
+            const modal = document.getElementById('drill-word-list-modal');
+            const titleEl = document.getElementById('drill-word-list-title');
+            const startBtn = document.getElementById('start-drill-from-list-btn');
+            const incompleteTbodyEl = document.getElementById('incomplete-tbody');
+            const completedTbodyEl = document.getElementById('completed-tbody');
+            const incompleteCountEl = document.getElementById('incomplete-count');
+            const completedCountEl = document.getElementById('completed-count');
+
+            titleEl.innerText = `${drill.title} の管理`;
+
+            let allWordsInRange = [];
+            const match = drill.title.match(/(\d+)-(\d+)/);
+            if (match) {
+                const startId = parseInt(match[1]);
+                const endId = parseInt(match[2]);
+                allWordsInRange = appData.words.filter(w => w.id >= startId && w.id <= endId);
+            } else {
+                const drillWordIds = new Set(appData.words.map(w => String(w.id)));
+                allWordsInRange = appData.words.filter(w => drillWordIds.has(String(w.id)));
+            }
+
+            const remainingIdsSet = new Set(drill.remainingIds.map(String));
+            const incompleteWords = allWordsInRange.filter(w => remainingIdsSet.has(String(w.id)));
+            const completedWords = allWordsInRange.filter(w => !remainingIdsSet.has(String(w.id)));
+
+            incompleteTbodyEl.innerHTML = '';
+            completedTbodyEl.innerHTML = '';
+
+            const createWordRowElement = (word) => {
+                const tr = document.createElement('tr');
+                tr.dataset.wordId = word.id;
+                tr.className = "bg-white dark:bg-gray-800 cursor-grab active:cursor-grabbing select-none";
+                tr.innerHTML = `
+                    <td class="p-3 w-16 text-center text-gray-400 dark:text-gray-500 font-mono border-b dark:border-gray-700">${word.id}</td>
+                    <td class="p-3 font-bold text-gray-800 dark:text-gray-100 border-b dark:border-gray-700">${word.word}</td>
+                    <td class="p-3 text-gray-600 dark:text-gray-300 text-xs border-b dark:border-gray-700">${word.meaning}</td>
+                `;
+                return tr;
+            };
+
+            incompleteWords.forEach(word => incompleteTbodyEl.appendChild(createWordRowElement(word)));
+            completedWords.forEach(word => completedTbodyEl.appendChild(createWordRowElement(word)));
+
+            const updateCounts = () => {
+                incompleteCountEl.innerText = incompleteTbodyEl.children.length;
+                completedCountEl.innerText = completedTbodyEl.children.length;
+            };
+            updateCounts();
+
+            const sortableOptions = {
+                group: 'drill-words',
+                animation: 150,
+                onEnd: async (evt) => {
+                    const newRemainingIds = Array.from(incompleteTbodyEl.children).map(child => String(child.dataset.wordId));
+                    
+                    const targetDrill = appData.drills.find(d => d.id === drill.id);
+                    if (targetDrill) {
+                        targetDrill.remainingIds = newRemainingIds;
+                    }
+
+                    updateCounts();
+                    
+                    if (auth.currentUser) {
+                        try {
+                            const drillRef = db.collection('users').doc(auth.currentUser.uid).collection('drills').doc(drill.id);
+                            await drillRef.update({ remainingIds: newRemainingIds });
+                        } catch (e) {
+                            console.error("Failed to update drill:", e);
+                            showError("同期に失敗しました。");
+                        }
+                    }
+                }
+            };
+
+            sortableIncomplete = new Sortable(incompleteTbodyEl, sortableOptions);
+            sortableCompleted = new Sortable(completedTbodyEl, sortableOptions);
+
+            startBtn.onclick = () => {
+                closeDrillWordListModal();
+                startDrillSession(drillId);
+            };
+
+            modal.classList.remove('hidden');
+        }
+
+        function closeDrillWordListModal() {
+            const modal = document.getElementById('drill-word-list-modal');
+            modal.classList.add('hidden');
+            if (sortableIncomplete) {
+                sortableIncomplete.destroy();
+                sortableIncomplete = null;
+            }
+            if (sortableCompleted) {
+                sortableCompleted.destroy();
+                sortableCompleted = null;
+            }
+        }
+
+        function exportStatsToExcel() {
+            if (!appData.words || appData.words.length === 0) {
+                alert("出力するデータがありません");
+                return;
+            }
+
+            const exportData = appData.words.map(w => {
+                const normalStat = appData.wordStats[w.id] || { p:0, o:0, b:0 };
+                const drillStat = appData.drillStats[w.id] || { p:0, o:0, b:0 };
+                const totalStat = {
+                    p: normalStat.p + drillStat.p,
+                    o: normalStat.o + drillStat.o,
+                    b: normalStat.b + drillStat.b
+                };
+
+                return {
+                    "ID": w.id,
+                    "Word": w.word,
+                    "Meaning": w.meaning,
+                    "〇": totalStat.p || 0,
+                    "△": totalStat.o || 0,
+                    "×": totalStat.b || 0
+                };
+            });
+
+            const worksheet = XLSX.utils.json_to_sheet(exportData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Statistics");
+
+            const now = new Date();
+            const dateStr = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+            const filename = `target_stats_${dateStr}.xlsx`;
+
+            XLSX.writeFile(workbook, filename);
+        }
+
+        // --- Utils ---
+        function showInfo(msg) {
+            elNotification.innerText = msg;
+            elNotification.className = "fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-blue-100 text-blue-600 px-6 py-3 rounded-full shadow-lg font-bold text-sm z-50";
+            elNotification.classList.remove('hidden');
+            setTimeout(() => elNotification.classList.add('hidden'), 3000);
+        }
+        function showError(msg) {
+            elNotification.innerText = msg;
+            elNotification.className = "fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-red-100 text-red-600 px-6 py-3 rounded-full shadow-lg font-bold text-sm z-50";
+            elNotification.classList.remove('hidden');
+            setTimeout(() => elNotification.classList.add('hidden'), 3000);
+        }
+        function toggleMenu() {
+            elMenuContent.classList.toggle('menu-hidden');
+            elMenuContent.classList.toggle('menu-visible');
+        }
+        function closeMenuIfOutside(event) {
+            if (elMenuContent.classList.contains('menu-visible') && !elSettingsContainer.contains(event.target)) toggleMenu();
+        }
+        function toggleMode() { 
+            appData.isStrictMode = document.getElementById('mode-toggle').checked;
+            isStrictMode = appData.isStrictMode;
+            saveToStorage(false);
+        }
+        
+        function toggleSimpleMode() {
+            appData.isSimpleMode = document.getElementById('simple-toggle').checked;
+            if (appData.isSimpleMode) {
+                elBody.classList.add('simple-mode');
+            } else {
+                elBody.classList.remove('simple-mode');
+            }
+            saveToStorage(false);
+        }
+
+        function toggleSpeech() {
+            appData.isSpeechEnabled = document.getElementById('speech-toggle').checked;
+            saveToStorage(false);
+        }
+
+        function toggleDarkMode() {
+            appData.isDarkMode = document.getElementById('dark-toggle').checked;
+            if (appData.isDarkMode) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+            saveToStorage(false);
+        }
+
+        function toggleGoogleSpeech() {
+            appData.isGoogleSpeechEnabled = document.getElementById('google-speech-toggle').checked;
+            saveToStorage(false);
+        }
+
+        function toggleOkDisable() {
+            appData.isOkDisabled = document.getElementById('disable-ok-toggle').checked;
+            saveToStorage(false);
+        }
+
+        function toggleSwipeMode() {
+            appData.isSwipeMode = document.getElementById('swipe-toggle').checked;
+            localStorage.setItem(SWIPE_MODE_KEY, appData.isSwipeMode);
+            if (appData.isSwipeMode) {
+                document.body.style.overflow = 'hidden'; 
+                showError("スワイプモードON: 右=Perfect, 左=Bad, 上=OK, タップ=答え");
+            } else {
+                document.body.style.overflow = 'auto';
+            }
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (!elRangeModal.classList.contains('hidden') || (!elFileInput.classList.contains('hidden') && elStartClick.classList.contains('hidden')) || !elHistoryModal.classList.contains('hidden')) return;
+            if (isTransitioning) return;
+            if (!elStartClick.classList.contains('hidden') && e.code === 'Enter') {
+                showRangeModal();
+                return;
+            }
+
+            switch(e.code) {
+                case 'ArrowDown': e.preventDefault(); showMeaning(); break;
+                case 'ArrowRight': e.preventDefault(); handleResult('perfect'); break;
+                case 'ArrowUp': e.preventDefault(); handleResult('ok'); break;
+                case 'ArrowLeft': e.preventDefault(); handleResult('bad'); break;
+                case 'Space': 
+                    e.preventDefault(); 
+                    if (isAnswerRevealed) {
+                        speakWord(elWord.innerText);
+                    } else {
+                        showMeaning();
+                    }
+                    break;
+            }
+        });
+        let touchStartX = 0;
+    let touchStartY = 0;
+    
+    const container = document.getElementById('app-container');
+    container.addEventListener('touchstart', (e) => {
+        if (!appData.isSwipeMode) return;
+        touchStartX = e.changedTouches[0].screenX;
+        touchStartY = e.changedTouches[0].screenY;
+    }, {passive: false});
+
+    container.addEventListener('touchend', (e) => {
+        if (!appData.isSwipeMode) return;
+        const touchEndX = e.changedTouches[0].screenX;
+        const touchEndY = e.changedTouches[0].screenY;
+        handleGesture(touchStartX, touchStartY, touchEndX, touchEndY);
+    }, {passive: false});
+
+    function handleGesture(startX, startY, endX, endY) {
+        const diffX = endX - startX;
+        const diffY = endY - startY;
+        const absX = Math.abs(diffX);
+        const absY = Math.abs(diffY);
+
+        if (absX < 10 && absY < 10) {
+            showMeaning();
+            return;
+        }
+
+        if (absX > absY && absX > 50) {
+            if (diffX > 0) handleResult('perfect');
+            else handleResult('bad');
+        } 
+        else if (absY > 50 && diffY < 0) {
+            handleResult('ok');
+        }
+    }
+
+    async function createDrillFromRange() {
+        if (!auth.currentUser) { alert("修行モードはログイン必須です！"); return; }
+        
+        const start = parseInt(document.getElementById('range-start').value);
+        const end = parseInt(document.getElementById('range-end').value);
+        
+        const isRandom = document.getElementById('random-check').checked;
+        
+        const title = `Range: ${start}-${end}`;
+
+        const btn = event.currentTarget || document.querySelector('button[onclick="createDrillFromRange()"]');
+        if(btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="text-xs">作成中...</span>';
+        }
+
+        const ids = [];
+        for (let i = start; i <= end; i++) ids.push(String(i));
+
+        const drillId = 'drill_' + Date.now();
+        
+        const newDrill = {
+            id: drillId,
+            title: title,
+            total: ids.length,
+            remainingIds: ids,
+            isRandom: isRandom,
+            createdAt: new Date().toISOString()
+        };
+
+        try {
+            await db.collection('users').doc(auth.currentUser.uid).collection('drills').doc(drillId).set(newDrill);
+            
+            setTimeout(() => {
+                startDrillSession(drillId);
+                elRangeModal.classList.add('hidden');
+                
+                if(btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<span class="text-xs">🔥 修行(Drill)として開始</span>';
+                }
+            }, 500);
+
+        } catch (e) {
+            console.error(e);
+            alert("保存に失敗しました");
+            if(btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<span class="text-xs">🔥 修行(Drill)として開始</span>';
+            }
+        }
+    }
+
+    function startDrillSession(drillId) {
+        const drill = appData.drills.find(d => d.id === drillId);
+        if (!drill) return;
+
+        appData.currentDrillId = drillId;
+        
+        const drillIndices = [];
+        drill.remainingIds.forEach(idStr => {
+            const idx = appData.words.findIndex(w => String(w.id) === idStr);
+            if(idx !== -1) drillIndices.push(idx);
+        });
+
+        if(drillIndices.length === 0) {
+            alert("この修行はすでに完了しています！");
+            return;
+        }
+
+        if (drill.isRandom) {
+            appData.queue = drillIndices.sort(() => Math.random() - 0.5);
+        } else {
+            appData.queue = drillIndices.sort((a, b) => a - b);
+        }
+        
+        appData.queueIndex = 0;
+        appData.sessionResults = new Array(appData.words.length).fill(null);
+        
+        updateDrillUI();
+        elRangeModal.classList.add('hidden'); 
+        elStartClick.classList.add('hidden');
+        
+        startPlay();
+        
+        if (document.getElementById('menu-content').classList.contains('menu-visible')) {
+            toggleMenu();
+        }
+    }
+
+   function updateDrillUI() {
+        const elBar = document.getElementById('drill-status-bar');
+        
+        if (!appData.currentDrillId || !elBar) {
+            if(elBar) elBar.classList.add('hidden');
+            return;
+        }
+
+        const drill = appData.drills.find(d => d.id === appData.currentDrillId);
+        if (drill) {
+            elBar.classList.remove('hidden');
+            
+            const remaining = drill.remainingIds.length;
+            const percent = ((drill.total - remaining) / drill.total) * 100;
+            document.getElementById('drill-progress').style.width = `${percent}%`;
+        }
+    }
+
+    function renderDrillList() {
+        const listEl = document.getElementById('drill-list');
+        if(!listEl) return;
+        
+        listEl.innerHTML = '';
+        if (!appData.drills || appData.drills.length === 0) {
+            listEl.innerHTML = '<p class="text-[10px] text-gray-400 dark:text-gray-500 text-center py-2">修行データなし</p>';
+            return;
+        }
+
+        const sortedDrills = [...appData.drills].sort((a, b) => {
+            return b.id.localeCompare(a.id);
+        });
+
+        sortedDrills.forEach(drill => {
+            const isSelected = (drill.id === appData.currentDrillId);
+            const bgClass = isSelected 
+                ? "bg-blue-50 dark:bg-blue-900/50 border-blue-200 dark:border-blue-500/50" 
+                : "bg-white dark:bg-gray-700/50 border-gray-100 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700";
+
+            const div = document.createElement('div');
+            div.className = `flex justify-between items-center p-3 rounded-lg border mb-2 transition-all ${bgClass}`;
+            
+            const info = document.createElement('div');
+            info.className = "flex-grow cursor-pointer";
+            
+            const remaining = drill.remainingIds.length;
+            const progressColor = remaining === 0 ? "text-green-500" : "text-gray-400 dark:text-gray-500";
+            
+            info.innerHTML = `
+                <div class="flex items-baseline gap-2">
+                    <p class="text-xs font-bold text-gray-700 dark:text-gray-200">${drill.title}</p>
+                    ${isSelected ? '<span class="text-[9px] bg-blue-500 text-white px-1.5 rounded-sm">PLAYING</span>' : ''}
+                </div>
+                <p class="text-[10px] ${progressColor} mt-0.5">残り: <span class="font-mono text-lg font-bold text-gray-800 dark:text-gray-100">${remaining}</span> / ${drill.total}</p>
+            `;
+            info.onclick = () => showDrillWordList(drill.id);
+            
+            const delBtn = document.createElement('button');
+            delBtn.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-300 hover:text-red-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+            `;
+            delBtn.onclick = async (e) => {
+                e.stopPropagation();
+                if(confirm("この修行データを削除しますか？")) {
+                    if (auth.currentUser) {
+                        await db.collection('users').doc(auth.currentUser.uid).collection('drills').doc(drill.id).delete();
+                    }
+                    appData.drills = appData.drills.filter(d => d.id !== drill.id);
+                    if(appData.currentDrillId === drill.id) resetToStandby();
+                    renderDrillList();
+                }
+            };
+            
+            div.appendChild(info);
+            div.appendChild(delBtn);
+            listEl.appendChild(div);
+        });
+    }
+
+    const originalToggleMenu = toggleMenu;
+    toggleMenu = function() {
+        originalToggleMenu();
+        const menuContent = document.getElementById('menu-content');
+        if (menuContent.classList.contains('menu-visible')) {
+            renderDrillList();
+        }
+    };
+    
+    auth.onAuthStateChanged(user => {
+        if (user) {
+            db.collection('users').doc(user.uid).collection('drills').onSnapshot(snapshot => {
+                appData.drills = [];
+                snapshot.forEach(doc => {
+                    appData.drills.push(doc.data());
+                });
+                renderDrillList();
+                if(appData.currentDrillId) updateDrillUI();
+            });
+        }
+    });
+    async function resetNormalStats() {
+        if (!confirm("【警告】\nこれまでの「通常学習」の記録（〇△×の回数）を全てリセットします。\n\n※この操作は取り消せません。\n※修行(ドリル)の学習データはリセットされません。\n\n本当によろしいですか？")) {
+            return;
+        }
+
+        appData.wordStats = {};
+        saveToStorage(false);
+
+        if (auth.currentUser) {
+            try {
+                await db.collection('users').doc(auth.currentUser.uid).collection('stats').doc('v1').set({
+                    wordStats: {} 
+                }, { merge: true });
+                alert("通常学習の累積データをリセットしました。");
+            } catch (e) {
+                console.error("Firestoreのリセットに失敗", e);
+                alert("データはリセットされました（クラウド同期なし）");
+            }
+        } else {
+            alert("通常学習の累積データをリセットしました。");
+        }
+
+        showHistoryList();
+    }
+
+    function updateApp() {
+        // Service Workerの更新を試みる
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(registrations => {
+                for(let registration of registrations) {
+                    registration.update();
+                }
+            });
+        }
+        // キャッシュを無視してページをリロード
+        location.reload(true);
+    }
+    </script>
+</body>
+</html>

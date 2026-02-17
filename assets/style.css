@@ -1,0 +1,725 @@
+﻿        /* フラッシュカード内のボタンのフォーカスリング（白枠）を非表示 */
+        #vocab-flashcard-container button:focus,
+        #vocab-settings-container button:focus {
+            outline: none;
+        }
+
+        /* ★修正：スクロールバーも変数対応 */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-panel);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 2px;
+        }
+
+        /* ★修正：bodyの背景色を「固定の黒」から「変数」に変更 */
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-main);
+        }
+
+        .category-label-top {
+            text-align: center;
+            border-bottom: 1px solid var(--c-gray-700);
+            padding: 2px 1px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-size: 8px;
+            color: var(--text-sub);
+            box-sizing: border-box;
+        }
+
+        /* ★修正：単元マップの枠背景を変数に */
+        .slit-wrapper {
+            display: flex;
+            width: 100%;
+            height: 150px;
+            border: 1px solid var(--c-gray-700);
+            border-radius: 4px;
+            overflow: hidden;
+            background-color: var(--bg-main);
+        }
+
+        /* ★修正：スリットの背景を変数に */
+        .slit-item {
+            flex: 1;
+            position: relative;
+            border-right: 1px solid var(--c-gray-700);
+            /* 境界線は薄い黒のままでOK */
+            background-color: var(--bg-panel);
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            overflow: hidden;
+            padding-top: 4px;
+            padding-bottom: 4px;
+        }
+
+        .slit-item:last-child {
+            border-right: none;
+        }
+
+        /* ★追加：単語フラッシュカード用アニメーションとスタイル */
+        .word-enter {
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+
+
+        .modal-enter {
+            animation: modalIn 0.2s ease-out forwards;
+        }
+
+        @keyframes modalIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        /* シンプルモード時の非表示設定 */
+        body.simple-mode .hide-in-simple {
+            display: none !important;
+        }
+
+        .slit-text {
+            flex-grow: 1;
+            writing-mode: vertical-rl;
+            text-orientation: upright;
+            letter-spacing: 1px;
+            font-size: 9px;
+            line-height: 1;
+            padding-top: 2px;
+            padding-bottom: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+        }
+
+        .slit-item.completed {
+            background-color: #10b981;
+        }
+
+        .slit-item.completed .slit-text {
+            color: rgba(0, 0, 0, 0.6);
+            font-weight: bold;
+        }
+
+        .slit-item.completed.weak {
+            background-color: #fbbf24;
+        }
+
+        .slit-item.weak-pending {
+            background-color: #7f1d1d;
+        }
+
+        .slit-item.weak-pending .slit-text {
+            color: #fca5a5;
+            font-weight: bold;
+        }
+
+        .slit-item:hover {
+            filter: brightness(1.2);
+        }
+
+        .slit-weak-btn {
+            font-size: 8px;
+            margin-top: 2px;
+            z-index: 10;
+            color: rgba(255, 255, 255, 0.2);
+            /* アイコンは薄い白系で固定でも可 */
+            transition: color 0.2s;
+            width: 100%;
+            text-align: center;
+            padding: 2px 0;
+        }
+
+        .slit-weak-btn:hover,
+        .slit-weak-btn.active {
+            color: #ef4444;
+            opacity: 1;
+            text-shadow: 0 0 2px black;
+        }
+
+        /* 完了済みスリットの中のボタン色調整 */
+        .slit-item.completed .slit-weak-btn {
+            color: rgba(0, 0, 0, 0.2);
+        }
+
+        .slit-item.completed .slit-weak-btn:hover,
+        .slit-item.completed .slit-weak-btn.active {
+            color: #ef4444;
+        }
+
+        /* ★追加：ライトモード時の単元マップ視認性向上 */
+        html.light-mode .slit-wrapper {
+            border-color: #94a3b8;
+        }
+
+        html.light-mode .slit-item {
+            border-right-color: #94a3b8;
+        }
+
+        html.light-mode .slit-item:not(.completed):not(.weak-pending) .slit-weak-btn {
+            color: rgba(0, 0, 0, 0.3);
+        }
+
+        html.light-mode .slit-item:not(.completed):not(.weak-pending) .slit-weak-btn:hover,
+        html.light-mode .slit-item:not(.completed):not(.weak-pending) .slit-weak-btn.active {
+            color: #ef4444;
+        }
+
+        /* ★修正：ヒートマップの背景を変数に */
+        .month-heat-item {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            border-right: 1px solid var(--c-gray-700);
+            background-color: var(--bg-panel);
+            position: relative;
+        }
+
+        .month-heat-fill {
+            width: 100%;
+            transition: height 0.5s ease;
+            opacity: 0.8;
+        }
+
+        .month-heat-label {
+            font-size: 10px;
+            color: var(--text-sub);
+            margin-top: 4px;
+            position: absolute;
+            bottom: 4px;
+            z-index: 10;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+        }
+
+        .tab-content {
+            display: none;
+            padding-bottom: 120px;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        #calendar-screen.active {
+            display: flex !important;
+        }
+
+        .calendar-day {
+            aspect-ratio: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            position: relative;
+            font-size: 0.875rem;
+        }
+
+        .calendar-day:hover {
+            background-color: var(--c-gray-700);
+        }
+
+        .calendar-day.today {
+            border: 1px solid #38bdf8;
+            color: #38bdf8;
+            font-weight: bold;
+        }
+
+        .has-event-dot {
+            width: 4px;
+            height: 4px;
+            background-color: #38bdf8;
+            border-radius: 50%;
+            position: absolute;
+            bottom: 4px;
+        }
+
+        .notification-progress {
+            height: 100%;
+            background-color: var(--c-gray-400);
+            /* 仮の色。JSで上書きされる */
+            transition: width 0.1s linear;
+            /* JSでの更新頻度に合わせて調整 */
+            border-radius: 2px;
+        }
+
+        /* ★追加：全画面表示モード用クラス */
+        body.fullscreen-mode {
+            overflow: hidden !important;
+        }
+
+        body.fullscreen-mode header {
+            display: none !important;
+        }
+
+        body.fullscreen-mode #record-default-ui {
+            display: none !important;
+        }
+
+        body.fullscreen-mode #app-nav {
+            display: none !important;
+        }
+
+        body.fullscreen-mode #main-container {
+            padding-bottom: 0 !important;
+        }
+
+        body.fullscreen-mode .tab-content {
+            padding-bottom: 1rem !important;
+        }
+
+        /* ★追加：フルスクリーンモード時の単語カード全画面表示 */
+        body.fullscreen-mode #vocab-flashcard-container {
+            position: fixed !important;
+            inset: 0 !important;
+            z-index: 150 !important;
+            height: 100vh !important;
+            max-height: 100vh !important;
+            min-height: 100vh !important;
+            border-radius: 0 !important;
+            border: none !important;
+            background-color: var(--bg-dark) !important;
+            margin-bottom: 0 !important;
+        }
+
+        /* ★追加：シンプルモード用クラス */
+        .simple-mode .hide-in-simple {
+            display: none !important;
+        }
+
+        body.simple-mode .simple-mode-hover {
+            opacity: 0;
+            pointer-events: auto;
+            transition: opacity 0.3s;
+        }
+
+        body.simple-mode .simple-mode-hover:hover,
+        body.simple-mode .simple-mode-hover:active {
+            opacity: 1;
+        }
+
+        /* Vocab: Menu / Toggle */
+        #vocab-menu-content {
+            transform-origin: top right;
+            transition: transform 0.2s, opacity 0.2s;
+        }
+
+        .vocab-menu-hidden {
+            transform: scale(0.95) translateY(-10px);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .vocab-menu-visible {
+            transform: scale(1) translateY(0);
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .vocab-toggle-input:checked+.vocab-toggle-bg {
+            background-color: #ef4444;
+        }
+
+        .vocab-toggle-input:checked+.vocab-toggle-bg .vocab-toggle-circle {
+            transform: translateX(100%);
+        }
+
+        .has-completed-mark {
+            position: absolute;
+            bottom: 4px;
+            right: 4px;
+            font-size: 8px;
+            color: #10b981;
+        }
+
+        .challenge-mark {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            font-size: 10px;
+            color: #fbbf24;
+        }
+
+        select.custom-select {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+            background-position: right 0.5rem center;
+            background-repeat: no-repeat;
+            background-size: 1.5em 1.5em;
+            padding-right: 2.5rem;
+            appearance: none;
+        }
+
+        .fire-aura {
+            position: relative;
+        }
+
+        .fire-aura::before {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: -10px;
+            right: -10px;
+            bottom: -10px;
+            background: radial-gradient(circle, rgba(255, 69, 0, 0.4) 0%, rgba(255, 215, 0, 0) 70%);
+            border-radius: 50%;
+            z-index: -1;
+            animation: fire-pulse 1.5s infinite alternate;
+            filter: blur(8px);
+        }
+
+        .fire-aura::after {
+            content: '';
+            position: absolute;
+            top: -5px;
+            left: -5px;
+            right: -5px;
+            bottom: -5px;
+            background: radial-gradient(circle, rgba(255, 140, 0, 0.6) 0%, rgba(255, 69, 0, 0) 70%);
+            border-radius: 50%;
+            z-index: -1;
+            animation: fire-pulse 1s infinite alternate-reverse;
+            filter: blur(4px);
+        }
+
+        @keyframes fire-pulse {
+            0% {
+                transform: scale(0.95);
+                opacity: 0.6;
+            }
+
+            100% {
+                transform: scale(1.1);
+                opacity: 1;
+            }
+        }
+
+        .text-fire {
+            background: linear-gradient(to bottom, #ffd700, #ff4500);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 900;
+            filter: drop-shadow(0 0 5px rgba(255, 69, 0, 0.5));
+        }
+
+        #debug-mode-indicator {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: repeating-linear-gradient(45deg, #f59e0b, #f59e0b 10px, #000 10px, #000 20px);
+            z-index: 100;
+        }
+
+        #custom-alert-box {
+            animation: slideUp 0.2s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(10px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        nav#app-nav {
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        .weak-checkbox:checked+div {
+            background-color: #ef4444;
+            color: white;
+            border-color: #ef4444;
+        }
+
+        /* ★ここから下は前回追加した変数の定義（そのまま残しておいてください） */
+        :root {
+            /* ダークモード（デフォルト） */
+            --bg-main: #0f172a;
+            --bg-panel: #1e293b;
+            --text-main: #e2e8f0;
+            --text-sub: #94a3b8;
+            --accent: #38bdf8;
+
+            --c-gray-900: #111827;
+            --c-gray-800: #1f2937;
+            --c-gray-700: #374151;
+            --c-gray-400: #9ca3af;
+        }
+
+        html.light-mode {
+            --bg-main: #f1f5f9;
+            --bg-panel: #ffffff;
+            --text-main: #334155;
+            --text-sub: #64748b;
+            --accent: #0284c7;
+
+            --c-gray-900: #f1f5f9;
+            --c-gray-800: #e2e8f0;
+            --c-gray-700: #cbd5e1;
+            --c-gray-400: #64748b;
+        }
+
+        html.light-mode body {
+            color: var(--text-main);
+        }
+
+        html.light-mode .text-white {
+            color: var(--text-main) !important;
+        }
+
+        html.light-mode .text-gray-300 {
+            color: var(--text-sub) !important;
+        }
+
+        html.light-mode .text-gray-400 {
+            color: var(--text-sub) !important;
+        }
+
+        html.light-mode .text-gray-500 {
+            color: #94a3b8 !important;
+        }
+
+        /*119
+
+        /* ★追加：PayPay風の中央浮き出しボタン */
+        .nav-center-wrapper {
+            position: relative;
+            width: 60px;
+            height: 100%;
+        }
+
+        .nav-center-btn {
+            position: absolute;
+            bottom: 24px;
+            /* バーより上に飛び出させる */
+            left: 50%;
+            transform: translateX(-50%);
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: var(--accent);
+            /* アクセントカラー */
+            color: var(--bg-main);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 60;
+            border: 4px solid var(--bg-panel);
+            /* 背景色で縁取りして「切り抜き」感を出す */
+            transition: transform 0.1s;
+        }
+
+        .nav-center-btn:active {
+            transform: translateX(-50%) scale(0.95);
+        }
+
+        .nav-center-btn i {
+            font-size: 20px;
+            margin-bottom: 2px;
+        }
+
+        .nav-center-btn span {
+            font-size: 9px;
+            font-weight: bold;
+        }
+
+        /* 週間チェック表のデザイン */
+        .challenge-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+
+        .challenge-th {
+            font-size: 10px;
+            color: var(--text-sub);
+            text-align: center;
+            padding: 4px;
+            border-bottom: 1px solid var(--c-gray-700);
+            font-weight: normal;
+        }
+
+        .challenge-th.today {
+            color: var(--accent);
+            font-weight: bold;
+        }
+
+        .challenge-row {
+            transition: background-color 0.2s;
+        }
+
+        .challenge-row:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .challenge-name-cell {
+            max-width: 100px;
+            padding: 8px;
+            font-size: 12px;
+            font-weight: bold;
+            color: var(--text-main);
+            border-bottom: 1px solid var(--c-gray-800);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .challenge-check-cell {
+            padding: 4px;
+            text-align: center;
+            border-bottom: 1px solid var(--c-gray-800);
+        }
+
+        .check-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            background-color: var(--c-gray-800);
+            border: 1px solid var(--c-gray-700);
+            color: transparent;
+        }
+
+        .check-btn.checked {
+            background-color: #fbbf24;
+            /* Challenge Gold */
+            border-color: #fbbf24;
+            color: #1e293b;
+            box-shadow: 0 2px 5px rgba(251, 191, 36, 0.4);
+            transform: scale(1.1);
+        }
+
+        /* 今日の分が未完了なら強調 */
+        .check-btn.today-incomplete {
+            border-color: #ef4444;
+            box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
+            animation: pulse-border 2s infinite;
+        }
+
+        @keyframes pulse-border {
+            0% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.6;
+            }
+
+            100% {
+                opacity: 1;
+            }
+        }
+
+        /* ★追加：ニュースティッカーのアニメーション */
+        .ticker-slide-enter {
+            animation: slide-in-bottom 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .ticker-slide-exit {
+            animation: slide-out-top 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes slide-in-bottom {
+            0% {
+                transform: translateY(100%);
+                opacity: 0;
+            }
+
+            100% {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slide-out-top {
+            0% {
+                transform: translateY(0);
+                opacity: 1;
+            }
+
+            100% {
+                transform: translateY(-100%);
+                opacity: 0;
+            }
+        }
+
+        .ticker-item {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 0 20px;
+        }
+
+        .ticker-category-badge {
+            font-size: 9px;
+            padding: 1px 4px;
+            border-radius: 2px;
+            margin-right: 6px;
+            white-space: nowrap;
+            font-weight: bold;
+            /* border: 1px solid currentColor; */
+            opacity: 0.8;
+        }
+
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }

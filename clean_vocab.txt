@@ -1,0 +1,9 @@
+function completeVocabSchedule(unitId) {
+    const subjId = appData.currentSubjectId;
+    const subj = appData.subjects[subjId];
+    if (subj && subj.isVocab) {
+        showToast(`単語学習の範囲「${unitId}」を完了としてマークしました。`);
+        saveData();
+        updateUI();
+    }
+}
