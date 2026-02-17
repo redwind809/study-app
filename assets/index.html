@@ -4422,6 +4422,71 @@
             setTimeout(() => document.getElementById('gemini-copy-feedback').classList.add('hidden'), 3000);
         }
 
+        // ★追加：AI構造編集用関数 (タグ対応版)
+        function exportSyllabusStructure() {
+            const subj = appData.subjects[editingSubjectId];
+            if (!subj || !subj.syllabus) {
+                showToast("単元データがありません");
+                return;
+            }
+            // ID, Category, Title, Difficultyを出力
+            const data = subj.syllabus.map(u => ({
+                id: u.id,
+                category: u.category,
+                title: u.title,
+                difficulty: u.difficulty
+            }));
+            const json = JSON.stringify(data, null, 2);
+            document.getElementById('syllabus-structure-input').value = json;
+            copyTextToClipboard(json); // クリップボードにもコピー
+            showToast("JSONをクリップボードにコピーしました");
+        }
+
+        function reimportSyllabusStructure() {
+            const input = document.getElementById('syllabus-structure-input').value;
+            if (!input) {
+                showToast("JSONを入力してください");
+                return;
+            }
+            try {
+                const data = JSON.parse(input);
+                if (!Array.isArray(data)) throw new Error("ルートが配列ではありません");
+
+                const subj = appData.subjects[editingSubjectId];
+                if (!subj || !subj.syllabus) {
+                    showToast("科目が選択されていません");
+                    return;
+                }
+
+                let count = 0;
+                data.forEach(item => {
+                    // IDでマッチングして更新
+                    const unit = subj.syllabus.find(u => u.id === item.id);
+                    if (unit) {
+                        if (item.category !== undefined) unit.category = item.category;
+                        if (item.title !== undefined) unit.title = item.title;
+
+                        // difficultyの更新 (配列対応)
+                        if (item.difficulty !== undefined) {
+                            if (Array.isArray(item.difficulty)) {
+                                unit.difficulty = item.difficulty;
+                            } else if (typeof item.difficulty === 'string') {
+                                unit.difficulty = [item.difficulty];
+                            } else {
+                                unit.difficulty = undefined; // nullなどはクリア
+                            }
+                        }
+                        count++;
+                    }
+                });
+                saveData();
+                renderUnitList(); // リスト再描画
+                showToast(`${count}件の単元情報を更新しました`);
+            } catch (e) {
+                showAppConfirm("エラー", "JSONのパースに失敗しました:\n" + e.message, () => { });
+            }
+        }
+
         // --- CHART & UPDATE UI ---
         // ★修正版：「既遂(initial)」を初期進捗としてグラフに反映させる関数
         function updatePaceChart(isChallenge) {
