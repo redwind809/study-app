@@ -781,7 +781,10 @@
             <div class="bg-app-panel rounded-lg p-4 border border-gray-700 shadow-sm mb-6">
                 <h2 class="text-xs font-medium text-gray-400 mb-3 flex items-center justify-between">
                     <span><i class="fas fa-chart-line text-app-accent mr-1"></i> ペース予測・推移</span>
-                    <span class="text-[9px] text-gray-500" id="chart-legend-note">※オレンジは現在のペース予測</span>
+                    <div class="flex flex-col items-end">
+                        <span id="predicted-finish-date" class="text-[10px] font-bold text-app-accent"></span>
+                        <span class="text-[9px] text-gray-500" id="chart-legend-note">※オレンジは現在のペース予測</span>
+                    </div>
                 </h2>
                 <div class="relative h-48 w-full">
                     <canvas id="paceChart"></canvas>
