@@ -1678,7 +1678,7 @@
 
     <script>
         // --- 1. Variables & Base Data ---
-        const APP_VERSION = "v3.8"; // ★変更を加えるたびにここを書き換える
+        const APP_VERSION = "v3.9"; // 変更するたびに上げる // ★変更を加えるたびにここを書き換える
         const ALL_SUBJECTS_ID = 'all';
         const SUBJECT_FIXED_COLORS = { chemistry: 'text-app-accent', math: 'text-green-400', physics: 'text-purple-400' };
         const COLOR_PALETTE = ['text-sky-400', 'text-emerald-400', 'text-violet-400', 'text-amber-400', 'text-rose-400', 'text-fuchsia-400', 'text-cyan-400', 'text-lime-400', 'text-indigo-400', 'text-pink-400', 'text-yellow-400', 'text-teal-400', 'text-blue-500', 'text-green-500', 'text-purple-500', 'text-orange-500', 'text-red-500', 'text-blue-300', 'text-green-300', 'text-purple-300', 'text-orange-300', 'text-rose-300', 'text-emerald-300', 'text-sky-300'];
@@ -2864,12 +2864,17 @@
 
             const checkDiv = document.createElement('div');
             const isCompleted = item.status === 'completed';
-            checkDiv.className = `w-5 h-5 rounded-full flex items-center justify-center border cursor-pointer transition-all ${isCompleted ? 'bg-app-success border-app-success text-app-dark' : 'border-gray-500 text-transparent hover:border-app-accent'}`;
-            checkDiv.innerHTML = '<i class="fas fa-check text-[10px]"></i>';
+            checkDiv.className = `w-8 h-8 rounded-full flex items-center justify-center border cursor-pointer transition-all active:scale-90 ${isCompleted ? 'bg-app-success border-app-success text-app-dark' : 'border-gray-500 text-transparent active:border-app-accent'}`;
+            checkDiv.innerHTML = '<i class="fas fa-check text-xs"></i>';
             checkDiv.onclick = (e) => {
                 e.stopPropagation();
                 toggleStatusGlobal(taskData.subjectId, item.id);
             };
+            checkDiv.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                toggleStatusGlobal(taskData.subjectId, item.id);
+            });
 
             const textDiv = document.createElement('div');
             textDiv.className = "flex flex-col truncate";
