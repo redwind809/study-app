@@ -1121,6 +1121,11 @@
                                         class="flex-1 bg-gray-900 border border-gray-700 text-white text-xs rounded px-2 py-2">
                                 </div>
 
+                                <div class="flex flex-col gap-1">
+                                    <label class="text-[10px] text-gray-500">難易度タグ</label>
+                                    <div id="new-unit-difficulty-checks" class="flex flex-wrap gap-2 min-w-[100px]">
+                                    </div>
+                                </div>
                                 <div class="flex gap-2 items-center">
                                     <select id="new-unit-status-select"
                                         class="bg-gray-900 border border-gray-700 text-white text-xs rounded px-2 py-2 focus:border-app-accent">
@@ -1633,11 +1638,9 @@
                 </div>
 
                 <div>
-                    <label class="text-[10px] text-gray-500 block mb-1 font-bold">難易度タグ</label>
-                    <select id="bulk-edit-difficulty"
-                        class="w-full bg-gray-900 border border-gray-700 text-white text-xs rounded px-3 py-2">
-                        <option value="no-change">変更しない</option>
-                    </select>
+                    <label class="text-[10px] text-gray-500 block mb-1 font-bold">難易度タグ (上書き)</label>
+                    <div id="bulk-edit-difficulty-checks"
+                        class="flex flex-wrap gap-2 p-2 bg-gray-900/50 rounded border border-gray-700"></div>
                 </div>
 
                 <div>
@@ -1701,9 +1704,8 @@
                 </div>
                 <div>
                     <label class="text-[10px] text-gray-500 block mb-1 font-bold">難易度タグ</label>
-                    <select id="single-edit-difficulty"
-                        class="w-full bg-gray-900 border border-gray-700 text-white text-xs rounded px-3 py-2">
-                    </select>
+                    <div id="single-edit-difficulty-checks"
+                        class="flex flex-wrap gap-2 p-2 bg-gray-900/50 rounded border border-gray-700"></div>
                 </div>
 
                 <div>
@@ -1756,7 +1758,7 @@
 
     <script>
         // --- 1. Variables & Base Data ---
-        const APP_VERSION = "v4.2";
+        const APP_VERSION = "v4.3";
         const ALL_SUBJECTS_ID = 'all';
         const SUBJECT_FIXED_COLORS = { chemistry: 'text-app-accent', math: 'text-green-400', physics: 'text-purple-400' };
         const COLOR_PALETTE = ['text-sky-400', 'text-emerald-400', 'text-violet-400', 'text-amber-400', 'text-rose-400', 'text-fuchsia-400', 'text-cyan-400', 'text-lime-400', 'text-indigo-400', 'text-pink-400', 'text-yellow-400', 'text-teal-400', 'text-blue-500', 'text-green-500', 'text-purple-500', 'text-orange-500', 'text-red-500', 'text-blue-300', 'text-green-300', 'text-purple-300', 'text-orange-300', 'text-rose-300', 'text-emerald-300', 'text-sky-300'];
@@ -2266,8 +2268,43 @@
         }
         function isUnitInFilter(unit, subjId) {
             const filter = getDifficultyFilter(subjId);
-            if (!unit.difficulty) return true; // タグなしは常に含める
-            return filter.includes(unit.difficulty);
+            const tags = Array.isArray(unit.difficulty) ? unit.difficulty : (unit.difficulty ? [unit.difficulty] : []);
+            if (tags.length === 0) return true; // タグなしは常に含める
+            return tags.some(t => filter.includes(t));
+        }
+
+        function renderDifficultyCheckboxes(containerId, subjId, currentTags = []) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            container.innerHTML = '';
+
+            // 配列化と文字列互換
+            const current = Array.isArray(currentTags) ? currentTags : (currentTags ? [currentTags] : []);
+
+            const labels = getDifficultyLabels(subjId);
+            Object.entries(labels).forEach(([key, label]) => {
+                const labelEl = document.createElement('label');
+                labelEl.className = 'flex items-center gap-1 cursor-pointer bg-gray-800 px-2 py-1 rounded border border-gray-700 hover:border-gray-500 select-none';
+
+                const input = document.createElement('input');
+                input.type = 'checkbox';
+                input.value = key;
+                input.checked = current.includes(key);
+                input.className = 'accent-app-accent';
+                if (containerId === 'bulk-edit-difficulty-checks') input.dataset.bulkDiff = 'true';
+
+                const span = document.createElement('span');
+                span.className = 'text-[10px] text-gray-300';
+                span.textContent = `${key} (${label})`; // キー(表示名)
+
+                labelEl.appendChild(input);
+                labelEl.appendChild(span);
+                container.appendChild(labelEl);
+            });
+
+            if (Object.keys(labels).length === 0) {
+                container.innerHTML = '<span class="text-[10px] text-gray-500">タグ設定なし</span>';
+            }
         }
 
         function recordHistory() {
@@ -3521,7 +3558,16 @@
         }
         function toggleSubjectActive(id) { if (appData.subjects[id]) { appData.subjects[id].isActive = !appData.subjects[id].isActive; saveData(); updateUI(); } }
         function deleteSubjectRequest(id) { showAppConfirm("削除確認", `「${appData.subjects[id].name}」を完全に削除しますか？`, () => { delete appData.subjects[id]; if (appData.currentSubjectId === id) appData.currentSubjectId = ALL_SUBJECTS_ID; saveData(); updateUI(); }); }
-        function editSubject(id) { editingSubjectId = id; document.getElementById('edit-subject-name-input').value = appData.subjects[id].name; document.getElementById('unit-editor-area').classList.remove('hidden'); document.getElementById('challenge-editor-area').classList.add('hidden'); renderUnitList(); resetUnitInput(); renderDifficultyLabels(); }
+        function editSubject(id) {
+            editingSubjectId = id;
+            document.getElementById('edit-subject-name-input').value = appData.subjects[id].name;
+            document.getElementById('unit-editor-area').classList.remove('hidden');
+            document.getElementById('challenge-editor-area').classList.add('hidden');
+            renderDifficultyCheckboxes('new-unit-difficulty-checks', id, []);
+            renderUnitList();
+            resetUnitInput();
+            renderDifficultyLabels();
+        }
 
         // ★ 難易度ラベル管理
         function renderDifficultyLabels() {
@@ -3704,7 +3750,12 @@
             document.getElementById('bulk-edit-status').value = 'no-change';
             document.getElementById('bulk-edit-date').value = '';
             document.getElementById('bulk-edit-lap').value = '';
-            populateDifficultySelect(document.getElementById('bulk-edit-difficulty'), editingSubjectId, 'no-change', true);
+            document.getElementById('bulk-edit-category').value = '';
+            document.getElementById('bulk-edit-status').value = 'no-change';
+            document.getElementById('bulk-edit-date').value = '';
+            document.getElementById('bulk-edit-lap').value = '';
+            renderDifficultyCheckboxes('bulk-edit-difficulty-checks', editingSubjectId, []);
+            toggleBulkDateInputInModal();
             toggleBulkDateInputInModal();
 
             document.getElementById('bulk-edit-modal').classList.remove('hidden');
@@ -3728,44 +3779,37 @@
             const checks = document.querySelectorAll('.unit-select-checkbox:checked');
             if (checks.length === 0) return;
 
+            const subj = appData.subjects[editingSubjectId];
+
             // 各入力値を取得
             const newCat = document.getElementById('bulk-edit-category').value.trim();
             const statusType = document.getElementById('bulk-edit-status').value;
             const dateVal = document.getElementById('bulk-edit-date').value;
             const lapVal = document.getElementById('bulk-edit-lap').value;
-            const diffVal = document.getElementById('bulk-edit-difficulty').value;
 
-            // 何も入力されていない場合は警告
-            if (!newCat && statusType === 'no-change' && lapVal === "" && diffVal === 'no-change') {
-                showToast("変更内容を入力してください");
-                return;
-            }
+            // 難易度取得
+            const diffChecks = document.querySelectorAll('#bulk-edit-difficulty-checks input:checked');
+            const newDiffs = Array.from(diffChecks).map(c => c.value);
+            const shouldUpdateDiff = newDiffs.length > 0;
 
-            if (statusType === 'completed_date' && !dateVal) {
-                showToast("完了日を選択してください");
-                return;
-            }
+            let updateCount = 0;
 
             if (!confirm(`選択した ${checks.length} 件の単元を一括変更しますか？`)) return;
-
-            const subj = appData.subjects[editingSubjectId];
-            let updateCount = 0;
 
             checks.forEach(c => {
                 const idx = parseInt(c.value);
                 const item = subj.syllabus[idx];
                 if (!item) return;
 
-                // 1. カテゴリ更新（入力がある場合のみ）
-                if (newCat) {
-                    item.category = newCat;
-                }
-                // 1.5. 難易度更新
-                if (diffVal !== 'no-change') {
-                    item.difficulty = diffVal || undefined;
+                // カテゴリ変更
+                if (newCat) item.category = newCat;
+
+                // 難易度変更
+                if (shouldUpdateDiff) {
+                    item.difficulty = newDiffs;
                 }
 
-                // 2. ステータス更新（「変更しない」以外の場合）
+                // ステータス変更
                 if (statusType !== 'no-change') {
                     if (statusType === 'pending') {
                         item.status = 'pending';
@@ -3773,19 +3817,18 @@
                     } else if (statusType === 'initial') {
                         item.status = 'completed';
                         item.completedDate = 'initial';
-                    } else {
-                        // completed or completed_date
-                        item.status = 'completed';
-                        if (statusType === 'completed_date') {
-                            item.completedDate = dateVal;
-                        } else {
-                            // 今日
+                    } else if (statusType === 'completed_today') {
+                        if (item.status !== 'completed') {
+                            item.status = 'completed';
                             item.completedDate = getTodayStr();
                         }
+                    } else if (statusType === 'completed_date' && dateVal) {
+                        item.status = 'completed';
+                        item.completedDate = dateVal;
                     }
                 }
 
-                // 3. 周回数更新（入力がある場合のみ）
+                // 周回数変更
                 if (lapVal !== "") {
                     item.lapCount = parseInt(lapVal);
                 }
@@ -3812,7 +3855,8 @@
             document.getElementById('single-edit-title').value = item.title;
             document.getElementById('single-edit-weak').checked = !!item.isWeak;
             document.getElementById('single-edit-lap').value = item.lapCount || 0;
-            populateDifficultySelect(document.getElementById('single-edit-difficulty'), editingSubjectId, item.difficulty || '', false);
+            document.getElementById('single-edit-lap').value = item.lapCount || 0;
+            renderDifficultyCheckboxes('single-edit-difficulty-checks', editingSubjectId, item.difficulty || []);
 
             // ステータスの判定とセット
             const statusSel = document.getElementById('single-edit-status');
@@ -3867,8 +3911,11 @@
             item.title = title;
             item.isWeak = document.getElementById('single-edit-weak').checked;
             item.lapCount = parseInt(document.getElementById('single-edit-lap').value) || 0;
-            const diffVal = document.getElementById('single-edit-difficulty').value;
-            item.difficulty = diffVal || undefined;
+
+            // 難易度更新
+            const diffChecks = document.querySelectorAll('#single-edit-difficulty-checks input:checked');
+            const diffs = Array.from(diffChecks).map(c => c.value);
+            item.difficulty = diffs.length > 0 ? diffs : undefined;
 
             const statusType = document.getElementById('single-edit-status').value;
             const dateVal = document.getElementById('single-edit-date').value;
@@ -3908,109 +3955,85 @@
 
         // ★修正版：0日目完了を「日付」ではなく「既遂(initial)」として記録する関数
         function saveUnit() {
-            const c = document.getElementById('new-unit-category').value.trim();
-            const t = document.getElementById('new-unit-title').value.trim();
-            if (!c || !t) return;
+            const cat = document.getElementById('new-unit-category').value.trim();
+            const title = document.getElementById('new-unit-title').value.trim();
+            if (!title) { showToast('単元名を入力してください'); return; }
 
             const w = document.getElementById('new-unit-weak').checked;
             const lap = parseInt(document.getElementById('new-unit-lap').value) || 0;
             const statusType = document.getElementById('new-unit-status-select').value;
 
+            // 難易度タグ配列取得
+            const diffChecks = document.querySelectorAll('#new-unit-difficulty-checks input:checked');
+            const diffs = Array.from(diffChecks).map(c => c.value);
+
             const subj = appData.subjects[editingSubjectId];
 
             // 日付とステータスの決定
             let newStatus = 'pending';
-            let newDate = null;
+            let newDate = undefined;
             let shouldCleanSchedule = false;
 
             if (statusType === 'completed') {
                 newStatus = 'completed';
-                // 編集前の日付があればそれを維持、なければ今日
-                if (editingUnitIndex !== null && subj.syllabus[editingUnitIndex].completedDate) {
+                if (editingUnitIndex !== null && subj.syllabus[editingUnitIndex].completedDate && subj.syllabus[editingUnitIndex].completedDate !== 'initial') {
                     newDate = subj.syllabus[editingUnitIndex].completedDate;
                 } else {
                     newDate = getTodayStr();
                 }
             } else if (statusType === 'completed_init') {
                 newStatus = 'completed';
-
-                // 開始日がまだない場合、今日を開始日として登録
-                if (!subj.startDate) {
-                    subj.startDate = getTodayStr();
-                }
-
-                // ★修正点：日付ではなく「initial (既遂)」という特殊な値をセット
+                if (!subj.startDate) subj.startDate = getTodayStr();
                 newDate = "initial";
-
                 shouldCleanSchedule = true;
             }
 
-            // 追加または更新
-            if (editingUnitIndex === null) {
-                // 新規追加
-                subj.syllabus.push({
-                    id: `u_${Date.now()}`,
-                    category: c,
-                    title: t,
-                    status: newStatus,
-                    completedDate: newDate,
-                    lapCount: lap,
-                    isWeak: w
-                });
-            } else {
-                // 既存更新
-                const u = subj.syllabus[editingUnitIndex];
+            const newItem = {
+                id: (editingUnitIndex !== null) ? subj.syllabus[editingUnitIndex].id : `u_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                category: cat,
+                title: title,
+                status: newStatus,
+                completedDate: newDate,
+                lapCount: lap,
+                isWeak: w,
+                difficulty: diffs.length > 0 ? diffs : undefined
+            };
 
+            if (editingUnitIndex !== null) {
+                // 既存更新
                 if (shouldCleanSchedule) {
+                    const uId = subj.syllabus[editingUnitIndex].id;
                     Object.keys(appData.schedules).forEach(date => {
-                        appData.schedules[date] = appData.schedules[date].filter(task => task.unitId !== u.id);
+                        appData.schedules[date] = appData.schedules[date].filter(task => task.unitId !== uId);
                         if (appData.schedules[date].length === 0) delete appData.schedules[date];
                     });
                 }
-
-                u.category = c;
-                u.title = t;
-                u.isWeak = w;
-                u.lapCount = lap;
-
-                // ステータスや日付が変わる場合のみ更新
-                if (statusType === 'completed_init') {
-                    u.status = 'completed';
-                    u.completedDate = "initial"; // 強制的に既遂扱い
-                } else if (statusType === 'pending') {
-                    u.status = 'pending';
-                    u.completedDate = null;
-                } else {
-                    // 通常完了
-                    if (u.status !== 'completed') {
-                        u.status = 'completed';
-                        u.completedDate = getTodayStr();
-                    }
-                    // 以前「既遂」だったものを「今日完了」に変更したい場合などのために
-                    // ステータスタイプが 'completed' で、かつ現在 'initial' なら今日の日付で上書き
-                    if (statusType === 'completed' && u.completedDate === 'initial') {
-                        u.completedDate = getTodayStr();
-                    }
-                }
+                subj.syllabus[editingUnitIndex] = newItem;
+            } else {
+                // 新規追加
+                subj.syllabus.push(newItem);
             }
 
             saveData();
             renderUnitList();
             resetUnitInput();
             updateUI();
+            showToast(editingUnitIndex !== null ? '単元を更新しました' : '単元を追加しました');
         }
+
         function resetUnitInput() {
             editingUnitIndex = null;
+            document.getElementById('new-unit-category').value = '';
             document.getElementById('new-unit-title').value = '';
-            // カテゴリは連続入力しやすいよう残してもいいが、一旦クリアしない実装ならそのままでOK
-            // ここではタイトルだけクリアしておきます
-            document.getElementById('new-unit-weak').checked = false;
-            document.getElementById('new-unit-lap').value = 0;
             document.getElementById('new-unit-status-select').value = 'pending';
-
+            document.getElementById('new-unit-lap').value = 0;
+            document.getElementById('new-unit-weak').checked = false;
             document.getElementById('add-update-unit-btn').textContent = '追加';
             document.getElementById('cancel-edit-unit-btn').classList.add('hidden');
+            // 難易度リセット
+            if (editingSubjectId) renderDifficultyCheckboxes('new-unit-difficulty-checks', editingSubjectId, []);
         }
+
         function cancelEditUnit() { resetUnitInput(); }
         function deleteUnitRequest(idx) { showAppConfirm("削除確認", "削除しますか？", () => { appData.subjects[editingSubjectId].syllabus.splice(idx, 1); saveData(); renderUnitList(); updateUI(); }); }
 
