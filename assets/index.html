@@ -1852,7 +1852,7 @@
         function addToGoogleTasks(title, dateStr) {
             // 合鍵がない場合、アラートを出して教える
             if (!googleAccessToken) {
-                alert("【同期失敗】\nGoogle ToDoリストへの接続が切れています。\n設定メニューから一度「ログアウト」し、再度ログインしてください。");
+                showToast("⚠️ Google未接続。設定から再ログインしてください");
                 return;
             }
 
@@ -1873,7 +1873,7 @@
                     showToast("Google ToDoにも追加しました");
                 } else {
                     console.error("Task sync failed", response);
-                    alert("同期エラーが発生しました。コンソールを確認してください。");
+                    showToast("⚠️ 同期エラーが発生しました");
                 }
             });
         } // ★ここで区切るのが正解です！
