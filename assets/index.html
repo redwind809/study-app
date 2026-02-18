@@ -8,13 +8,14 @@
     <link rel="apple-touch-icon" href="icon.png">
     <meta name="apple-mobile-web-app-title" content="学習管理">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.tailwindcss.com" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="firebase-config.js"></script>
 
     <script>
         tailwind.config = {
@@ -648,8 +649,14 @@
 
 </head>
 
-<body class="antialiased font-sans h-screen flex flex-col overflow-hidden text-app-text"
-    style="opacity: 0; transition: opacity 0.5s;">
+<body class="antialiased font-sans h-screen flex flex-col overflow-hidden text-app-text">
+
+    <!-- Loading Overlay -->
+    <div id="initial-loader"
+        class="fixed inset-0 z-[1000] flex flex-col items-center justify-center bg-gray-900 transition-opacity duration-500">
+        <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+        <p class="text-gray-400 text-xs animate-pulse">Loading Study App...</p>
+    </div>
 
     <div id="login-modal" class="fixed inset-0 bg-app-dark z-[999] flex items-center justify-center p-4">
         <div class="bg-app-panel border border-gray-600 rounded-lg w-full max-w-sm p-6 shadow-2xl">
@@ -747,7 +754,7 @@
                 <div class="mt-2 text-xs text-gray-500" id="current-subject-name-display"></div>
             </div>
             <!-- 難易度フィルター -->
-            <div id="difficulty-filter-area" class="flex flex-wrap justify-center gap-2 mb-4 hidden"></div>
+            <div id="difficulty-filter-area" class="flex flex-wrap justify-start gap-2 mb-4 hidden px-4"></div>
 
             <div class="mb-8">
                 <div class="flex justify-between items-end mb-2">
@@ -1853,14 +1860,7 @@
         // --- 3. Data Logic (Firebase Cloud Sync & Secure Auth) ---
         // =========================================================
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyAkEQmBcH-oljaA1TN1abBYuoFoffCvPzY",
-            authDomain: "studyapp-ae039.firebaseapp.com",
-            projectId: "studyapp-ae039",
-            storageBucket: "studyapp-ae039.firebasestorage.app",
-            messagingSenderId: "238524267683",
-            appId: "1:238524267683:web:ca0706ec5ff57e6cafd316"
-        };
+        // Firebase config is loaded from firebase-config.js
 
         if (!firebase.apps.length) {
             firebase.initializeApp(firebaseConfig);
@@ -2237,6 +2237,7 @@
                 if (!subj.history) subj.history = {};
                 if (subj.type === 'challenge' && !subj.challengeHistory) subj.challengeHistory = {};
                 if (!subj.difficultyLabels) subj.difficultyLabels = { A: 'A', B: 'B', C: 'C' };
+                if (!subj.difficultyOrder) subj.difficultyOrder = Object.keys(subj.difficultyLabels); // ★追加：並び順配列
                 if (!subj.difficultyFilter) subj.difficultyFilter = Object.keys(subj.difficultyLabels);
             });
             if (!data.ticker) data.ticker = JSON.parse(JSON.stringify(defaultTicker));
@@ -2257,14 +2258,27 @@
         function populateDifficultySelect(selectEl, subjId, currentVal, includeNoChange) {
             selectEl.innerHTML = '';
             if (includeNoChange) {
-                const opt = document.createElement('option'); opt.value = 'no-change'; opt.textContent = '変更しない'; selectEl.appendChild(opt);
+                const opt = document.createElement('option');
+                opt.value = 'no-change';
+                opt.textContent = '変更しない';
+                selectEl.appendChild(opt);
             }
-            const noneOpt = document.createElement('option'); noneOpt.value = ''; noneOpt.textContent = '（なし）'; selectEl.appendChild(noneOpt);
+            // const noneOpt = document.createElement('option'); noneOpt.value = ''; noneOpt.textContent = '（なし）'; selectEl.appendChild(noneOpt); // 削除
             const labels = getDifficultyLabels(subjId);
-            Object.entries(labels).forEach(([key, label]) => {
-                const opt = document.createElement('option'); opt.value = key; opt.textContent = label || key; selectEl.appendChild(opt);
+            const subj = appData.subjects[subjId];
+            const order = (subj && subj.difficultyOrder) ? subj.difficultyOrder : Object.keys(labels);
+
+            order.forEach(key => {
+                // ラベルが存在する場合のみ表示（削除されたタグ対策）
+                if (labels[key]) {
+                    const label = labels[key] || key;
+                    const opt = document.createElement('option');
+                    opt.value = key;
+                    opt.textContent = label;
+                    if (key === currentVal) opt.selected = true;
+                    selectEl.appendChild(opt);
+                }
             });
-            if (currentVal !== undefined) selectEl.value = currentVal;
         }
         function isUnitInFilter(unit, subjId) {
             const filter = getDifficultyFilter(subjId);
@@ -2282,7 +2296,14 @@
             const current = Array.isArray(currentTags) ? currentTags : (currentTags ? [currentTags] : []);
 
             const labels = getDifficultyLabels(subjId);
-            Object.entries(labels).forEach(([key, label]) => {
+            const subj = appData.subjects[subjId];
+            const order = (subj && subj.difficultyOrder) ? subj.difficultyOrder : Object.keys(labels);
+
+            order.forEach(key => {
+                // ラベルが存在するもののみ表示
+                if (!labels[key]) return;
+
+                const label = labels[key] || key;
                 const labelEl = document.createElement('label');
                 labelEl.className = 'flex items-center gap-1 cursor-pointer bg-gray-800 px-2 py-1 rounded border border-gray-700 hover:border-gray-500 select-none';
 
@@ -2295,7 +2316,7 @@
 
                 const span = document.createElement('span');
                 span.className = 'text-[10px] text-gray-300';
-                span.textContent = label || key; // ラベルのみ表示
+                span.textContent = label; // ラベルのみ表示
 
                 labelEl.appendChild(input);
                 labelEl.appendChild(span);
@@ -2916,7 +2937,7 @@
         }
 
 
-        // ★追加：難易度フィルターUI描画
+        // ★修正版：難易度フィルターUI描画（配列タグ対応・重複排除修正）
         function renderDifficultyFilter() {
             const area = document.getElementById('difficulty-filter-area');
             const subjId = appData.currentSubjectId;
@@ -2925,19 +2946,33 @@
             }
             const subj = appData.subjects[subjId];
             const labels = subj.difficultyLabels || {};
-            // 実際にsyllabusに使われている難易度だけ表示
-            const usedDiffs = new Set(subj.syllabus.map(u => u.difficulty).filter(Boolean));
+
+            // 実際にsyllabusに使われている難易度だけ表示（配列の中身を展開してSetへ）
+            const usedDiffs = new Set();
+            (subj.syllabus || []).forEach(u => {
+                const d = u.difficulty;
+                if (d) {
+                    if (Array.isArray(d)) d.forEach(val => usedDiffs.add(val));
+                    else usedDiffs.add(d);
+                }
+            });
+
             if (usedDiffs.size === 0) { area.classList.add('hidden'); return; }
 
             area.classList.remove('hidden');
-            area.innerHTML = '<span class="text-[9px] text-gray-500 mr-1">対象:</span>';
+            area.innerHTML = '<span class="text-[9px] text-gray-500 mr-1 flex items-center">対象:</span>';
             const filter = subj.difficultyFilter || Object.keys(labels);
+            const order = subj.difficultyOrder || Object.keys(labels);
 
-            [...usedDiffs].sort().forEach(key => {
+            // usedDiffsに含まれるものを、order順にソートして表示
+            order.filter(key => usedDiffs.has(key)).forEach(key => {
                 const isOn = filter.includes(key);
                 const label = labels[key] || key;
                 const chip = document.createElement('button');
-                chip.className = `text-[10px] px-2.5 py-1 rounded-full font-bold transition-all ${isOn ? 'bg-app-accent text-app-dark' : 'bg-gray-700 text-gray-500'}`;
+                // デザイン調整：丸みと色
+                chip.className = `text-[10px] px-2.5 py-1 rounded-full border transition-all flex items-center justify-center min-w-[24px] ${isOn
+                    ? 'bg-app-accent text-app-dark border-app-accent font-bold shadow-sm'
+                    : 'bg-gray-800 text-gray-400 border-gray-600 hover:border-gray-500'}`;
                 chip.textContent = label;
                 chip.onclick = () => {
                     if (isOn) {
@@ -3569,50 +3604,126 @@
             renderDifficultyLabels();
         }
 
-        // ★ 難易度ラベル管理
+        // ★ 難易度ラベル管理 (並び替え対応版)
         function renderDifficultyLabels() {
             const container = document.getElementById('difficulty-label-list');
             if (!container || !editingSubjectId) return;
             const subj = appData.subjects[editingSubjectId];
             if (!subj) return;
+
             const labels = subj.difficultyLabels || {};
+            // 並び順配列がない場合はキーの配列で初期化して保存
+            if (!subj.difficultyOrder) {
+                subj.difficultyOrder = Object.keys(labels);
+                saveData();
+            }
+
+            // 並び順に含まれていないキーがあれば末尾に追加（整合性保持）
+            Object.keys(labels).forEach(k => {
+                if (!subj.difficultyOrder.includes(k)) subj.difficultyOrder.push(k);
+            });
+            // 逆に存在しないキーが含まれていれば削除
+            subj.difficultyOrder = subj.difficultyOrder.filter(k => labels.hasOwnProperty(k));
+
             container.innerHTML = '';
-            Object.entries(labels).forEach(([key, label]) => {
+
+            subj.difficultyOrder.forEach((key, index) => {
+                const label = labels[key];
                 const row = document.createElement('div');
-                row.className = 'flex items-center gap-2';
+                row.className = 'flex items-center gap-2 bg-gray-900/50 p-1.5 rounded border border-gray-700/50';
+
+                // 上移動ボタン
+                const upBtn = index > 0
+                    ? `<button onclick="moveDifficultyLabel('${key}', -1)" class="text-gray-500 hover:text-white px-1"><i class="fas fa-chevron-up text-[10px]"></i></button>`
+                    : `<span class="w-4 inline-block"></span>`;
+
+                // 下移動ボタン
+                const downBtn = index < subj.difficultyOrder.length - 1
+                    ? `<button onclick="moveDifficultyLabel('${key}', 1)" class="text-gray-500 hover:text-white px-1"><i class="fas fa-chevron-down text-[10px]"></i></button>`
+                    : `<span class="w-4 inline-block"></span>`;
+
                 row.innerHTML = `
-                    <span class="text-[10px] text-gray-400 font-mono w-6 text-center shrink-0">${key}</span>
+                    <div class="flex flex-col gap-0.5">
+                        ${upBtn}
+                        ${downBtn}
+                    </div>
+                    <span class="text-[10px] text-gray-400 font-mono w-6 text-center shrink-0 font-bold">${key}</span>
                     <span class="text-[10px] text-gray-600">→</span>
                     <input type="text" value="${label}" id="diff-label-${key}"
-                        class="flex-1 bg-gray-900 border border-gray-700 text-white text-[10px] rounded px-2 py-1">
+                        class="flex-1 bg-gray-900 border border-gray-700 text-white text-[10px] rounded px-2 py-1 outline-none focus:border-app-accent">
                     <button onclick="updateDifficultyLabel('${key}')"
-                        class="text-app-accent hover:text-sky-300 text-[10px] px-2"><i class="fas fa-save"></i></button>
+                        class="text-app-accent hover:text-sky-300 text-[10px] px-2" title="保存"><i class="fas fa-save"></i></button>
                     <button onclick="removeDifficultyLabel('${key}')"
-                        class="text-gray-600 hover:text-red-400 text-[10px] px-2"><i class="fas fa-trash-alt"></i></button>
+                        class="text-gray-600 hover:text-red-400 text-[10px] px-2" title="削除"><i class="fas fa-trash-alt"></i></button>
                 `;
                 container.appendChild(row);
             });
         }
+
+        // ★追加：難易度タグの並び替え
+        function moveDifficultyLabel(key, direction) {
+            const subj = appData.subjects[editingSubjectId];
+            if (!subj || !subj.difficultyOrder) return;
+
+            const idx = subj.difficultyOrder.indexOf(key);
+            if (idx === -1) return;
+
+            const newIdx = idx + direction;
+            if (newIdx < 0 || newIdx >= subj.difficultyOrder.length) return;
+
+            // 入れ替え
+            const temp = subj.difficultyOrder[newIdx];
+            subj.difficultyOrder[newIdx] = subj.difficultyOrder[idx];
+            subj.difficultyOrder[idx] = temp;
+
+            saveData();
+            renderDifficultyLabels();
+        }
+
         function addDifficultyLabel() {
             const key = document.getElementById('new-diff-key').value.trim().toUpperCase();
             const label = document.getElementById('new-diff-label').value.trim();
             if (!key) { showToast('タグキーを入力してください'); return; }
+
             const subj = appData.subjects[editingSubjectId];
             if (!subj.difficultyLabels) subj.difficultyLabels = {};
+            if (subj.difficultyLabels[key]) { showToast('そのタグは既に存在します'); return; }
+
             subj.difficultyLabels[key] = label || key;
+
+            // 並び順の末尾に追加
+            if (!subj.difficultyOrder) subj.difficultyOrder = Object.keys(subj.difficultyLabels);
+            if (!subj.difficultyOrder.includes(key)) subj.difficultyOrder.push(key);
+
+            // フィルターにも追加（デフォルトON）
             if (!subj.difficultyFilter) subj.difficultyFilter = [];
-            subj.difficultyFilter.push(key);
+            if (!subj.difficultyFilter.includes(key)) subj.difficultyFilter.push(key);
+
             document.getElementById('new-diff-key').value = '';
             document.getElementById('new-diff-label').value = '';
-            saveData(); renderDifficultyLabels(); showToast(`タグ ${key} を追加しました`);
+
+            saveData();
+            renderDifficultyLabels();
+            showToast(`タグ ${key} を追加しました`);
         }
+
         function removeDifficultyLabel(key) {
             if (!confirm(`タグ「${key}」を削除しますか？\n（設定済みの単元データからは削除されません）`)) return;
             const subj = appData.subjects[editingSubjectId];
             delete subj.difficultyLabels[key];
+
+            // 並び順からも削除
+            if (subj.difficultyOrder) {
+                subj.difficultyOrder = subj.difficultyOrder.filter(k => k !== key);
+            }
+
             subj.difficultyFilter = (subj.difficultyFilter || []).filter(f => f !== key);
-            saveData(); renderDifficultyLabels(); updateUI();
+
+            saveData();
+            renderDifficultyLabels();
+            updateUI();
         }
+
         function updateDifficultyLabel(key) {
             const newVal = document.getElementById(`diff-label-${key}`).value.trim();
             const subj = appData.subjects[editingSubjectId];
@@ -5112,31 +5223,50 @@
             // ボタンの表示はHTML読み込み後に行うため、window.onload等で再度呼ぶか、
             // 設定モーダルを開いた時に更新するようにします
         })();
-        window.onload = () => {
+        document.addEventListener('DOMContentLoaded', () => {
+            // ローディング画面の制御
+            // 少しだけ待ってからフェードアウトさせる（ちらつき防止 & 初期処理待ち）
+            setTimeout(() => {
+                const loader = document.getElementById('initial-loader');
+                if (loader) {
+                    loader.style.opacity = '0';
+                    setTimeout(() => loader.remove(), 500);
+                }
+            }, 500);
+
             // ログイン状態の監視を少し丁寧に
-            firebase.auth().onAuthStateChanged((user) => {
-                const modal = document.getElementById('login-modal');
-                if (user) {
-                    currentUserDocId = user.uid;
-                    modal.classList.add('hidden');
-                    // ログインが確定してから1秒後に通信を開始する
-                    setTimeout(() => {
+            // Firebaseの読み込みを待つ必要があるため、setIntervalでチェックするか、
+            // deferしているのでDOMContentLoaded時にはfirebase変数が使えるはずだが、
+            // 安全のためtry-catchで囲むか、存在チェックを行う
+            const initFirebase = () => {
+                if (typeof firebase === 'undefined') {
+                    setTimeout(initFirebase, 100);
+                    return;
+                }
+
+                firebase.auth().onAuthStateChanged((user) => {
+                    const modal = document.getElementById('login-modal');
+                    if (user) {
+                        currentUserDocId = user.uid;
+                        modal.classList.add('hidden');
+                        // ログインが確定してから通信を開始する
                         startListening();
                         //syncFromGoogleTasks(); // ★自動同期したい場合はこの行が必要です！
-                    }, 1000);
-                } else {
-                    currentUserDocId = null;
-                    modal.classList.remove('hidden');
-                    document.body.style.opacity = 1;
-                }
-            });
+                    } else {
+                        currentUserDocId = null;
+                        modal.classList.remove('hidden');
+                    }
+                });
+            };
+            initFirebase();
+
             updateChartColors();
-            updateChartColors();
+            updateChartColors(); // 重複しているが元のコード通り残す
             initStudyTimeSelects(); // ★追加: セレクトボックス初期化
             // アコーディオンの初期状態を設定（直近で開いていたものを記憶しても良いが、一旦デフォルトは閉じておくか、最初だけ開く）
             // タブの初期表示
             switchHabitTab('tab-habit-check');
-        };
+        });
 
         // --- Global Data Migration ---
         function getBlankData() {
