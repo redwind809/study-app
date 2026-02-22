@@ -15,6 +15,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="firebase-config.js"></script>
 
     <script>
         tailwind.config = {
@@ -648,8 +649,14 @@
 
 </head>
 
-<body class="antialiased font-sans h-screen flex flex-col overflow-hidden text-app-text"
-    style="opacity: 0; transition: opacity 0.5s;">
+<body class="antialiased font-sans h-screen flex flex-col overflow-hidden text-app-text">
+
+    <!-- Loading Overlay -->
+    <div id="initial-loader"
+        class="fixed inset-0 z-[1000] flex flex-col items-center justify-center bg-gray-900 transition-opacity duration-500">
+        <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+        <p class="text-gray-400 text-xs animate-pulse">Loading Study App...</p>
+    </div>
 
     <div id="login-modal" class="fixed inset-0 bg-app-dark z-[999] flex items-center justify-center p-4">
         <div class="bg-app-panel border border-gray-600 rounded-lg w-full max-w-sm p-6 shadow-2xl">
@@ -747,7 +754,7 @@
                 <div class="mt-2 text-xs text-gray-500" id="current-subject-name-display"></div>
             </div>
             <!-- 難易度フィルター -->
-            <div id="difficulty-filter-area" class="flex flex-wrap justify-center gap-2 mb-4 hidden"></div>
+            <div id="difficulty-filter-area" class="flex flex-wrap justify-start gap-2 mb-4 hidden px-4"></div>
 
             <div class="mb-8">
                 <div class="flex justify-between items-end mb-2">
@@ -1026,12 +1033,30 @@
                         </div>
                         <div class="flex items-end gap-2">
                             <div class="flex-1">
-                                <label class="text-[10px] text-gray-500 block mb-1">就寝 (深夜は28時まで対応)</label>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label class="text-[10px] text-gray-500">就寝</label>
+                                    <label id="sleep-log-nextday-label"
+                                        class="flex items-center gap-1 cursor-pointer select-none">
+                                        <input type="checkbox" id="sleep-log-nextday" class="hidden"
+                                            onchange="updateBedNextDayLabel()">
+                                        <div class="w-7 h-4 bg-gray-700 rounded-full relative transition-colors duration-200"
+                                            id="sleep-log-nextday-track">
+                                            <div class="w-3 h-3 bg-gray-400 rounded-full absolute top-0.5 left-0.5 transition-all duration-200"
+                                                id="sleep-log-nextday-thumb"></div>
+                                        </div>
+                                        <span class="text-[10px] text-gray-500" id="sleep-log-nextday-text">翌日</span>
+                                    </label>
+                                </div>
                                 <input type="time" id="sleep-log-bed"
                                     class="w-full bg-gray-900 border-b border-gray-600 text-white text-lg font-mono focus:border-app-accent outline-none">
                             </div>
-                            <button onclick="saveSleepLog('bed')"
-                                class="bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-bold px-3 py-2 rounded mb-1 whitespace-nowrap shadow-md">就寝記録</button>
+                            <div class="flex flex-col gap-1 mb-1">
+                                <button onclick="saveSleepLog('bed')"
+                                    class="bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-bold px-3 py-2 rounded whitespace-nowrap shadow-md">就寝記録</button>
+                                <button onclick="saveSleepLog('allnighter')"
+                                    class="bg-gray-700 hover:bg-gray-600 text-orange-300 text-[10px] font-bold px-3 py-1.5 rounded whitespace-nowrap border border-gray-600">🌙
+                                    オール</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1057,6 +1082,8 @@
                             就寝</span>
                         <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-yellow-400"></span>
                             起床</span>
+                        <span class="flex items-center gap-1"><span class="text-orange-400 text-[8px]">徹夜</span>
+                            オール</span>
                     </div>
                 </div>
             </div>
@@ -1762,7 +1789,7 @@
 
     <script>
         // --- 1. Variables & Base Data ---
-        const APP_VERSION = "v4.3";
+        const APP_VERSION = "v4.4";
         const ALL_SUBJECTS_ID = 'all';
         const SUBJECT_FIXED_COLORS = { chemistry: 'text-app-accent', math: 'text-green-400', physics: 'text-purple-400' };
         const COLOR_PALETTE = ['text-sky-400', 'text-emerald-400', 'text-violet-400', 'text-amber-400', 'text-rose-400', 'text-fuchsia-400', 'text-cyan-400', 'text-lime-400', 'text-indigo-400', 'text-pink-400', 'text-yellow-400', 'text-teal-400', 'text-blue-500', 'text-green-500', 'text-purple-500', 'text-orange-500', 'text-red-500', 'text-blue-300', 'text-green-300', 'text-purple-300', 'text-orange-300', 'text-rose-300', 'text-emerald-300', 'text-sky-300'];
@@ -1857,14 +1884,7 @@
         // --- 3. Data Logic (Firebase Cloud Sync & Secure Auth) ---
         // =========================================================
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyAkEQmBcH-oljaA1TN1abBYuoFoffCvPzY",
-            authDomain: "studyapp-ae039.firebaseapp.com",
-            projectId: "studyapp-ae039",
-            storageBucket: "studyapp-ae039.firebasestorage.app",
-            messagingSenderId: "238524267683",
-            appId: "1:238524267683:web:ca0706ec5ff57e6cafd316"
-        };
+        // Firebase config is loaded from firebase-config.js
 
         if (!firebase.apps.length) {
             firebase.initializeApp(firebaseConfig);
@@ -2128,14 +2148,15 @@
                         const prevDate = formatDate(dObj);
                         const prevLog = appData.sleepLog[prevDate];
 
-                        if (wake !== null && prevLog && prevLog.bed) {
-                            const prevBed = timeToMinutes(prevLog.bed, true);
-                            if (prevBed !== null) {
+                        if (wake !== null && wake !== 9999 && prevLog && prevLog.bed && prevLog.bed !== 'allnighter') {
+                            const prevBed = timeToMinutes(prevLog.bed, true, prevLog.bedNextDay);
+                            if (prevBed !== null && prevBed !== 9999) {
                                 // 前日就寝〜当日起床
                                 duration = (wake + 1440) - prevBed;
                             }
                         }
-                        sleepLogRows.push([date, log.wake || '', log.bed || '', formatDuration(duration)]);
+                        const bedDisplay = log.bed === 'allnighter' ? 'オール' : (log.bed || '');
+                        sleepLogRows.push([date, log.wake || '', bedDisplay, formatDuration(duration)]);
                     });
                 }
 
@@ -2241,6 +2262,7 @@
                 if (!subj.history) subj.history = {};
                 if (subj.type === 'challenge' && !subj.challengeHistory) subj.challengeHistory = {};
                 if (!subj.difficultyLabels) subj.difficultyLabels = { A: 'A', B: 'B', C: 'C' };
+                if (!subj.difficultyOrder) subj.difficultyOrder = Object.keys(subj.difficultyLabels); // ★追加：並び順配列
                 if (!subj.difficultyFilter) subj.difficultyFilter = Object.keys(subj.difficultyLabels);
             });
             if (!data.ticker) data.ticker = JSON.parse(JSON.stringify(defaultTicker));
@@ -2261,14 +2283,27 @@
         function populateDifficultySelect(selectEl, subjId, currentVal, includeNoChange) {
             selectEl.innerHTML = '';
             if (includeNoChange) {
-                const opt = document.createElement('option'); opt.value = 'no-change'; opt.textContent = '変更しない'; selectEl.appendChild(opt);
+                const opt = document.createElement('option');
+                opt.value = 'no-change';
+                opt.textContent = '変更しない';
+                selectEl.appendChild(opt);
             }
-            const noneOpt = document.createElement('option'); noneOpt.value = ''; noneOpt.textContent = '（なし）'; selectEl.appendChild(noneOpt);
+            // const noneOpt = document.createElement('option'); noneOpt.value = ''; noneOpt.textContent = '（なし）'; selectEl.appendChild(noneOpt); // 削除
             const labels = getDifficultyLabels(subjId);
-            Object.entries(labels).forEach(([key, label]) => {
-                const opt = document.createElement('option'); opt.value = key; opt.textContent = label || key; selectEl.appendChild(opt);
+            const subj = appData.subjects[subjId];
+            const order = (subj && subj.difficultyOrder) ? subj.difficultyOrder : Object.keys(labels);
+
+            order.forEach(key => {
+                // ラベルが存在する場合のみ表示（削除されたタグ対策）
+                if (labels[key]) {
+                    const label = labels[key] || key;
+                    const opt = document.createElement('option');
+                    opt.value = key;
+                    opt.textContent = label;
+                    if (key === currentVal) opt.selected = true;
+                    selectEl.appendChild(opt);
+                }
             });
-            if (currentVal !== undefined) selectEl.value = currentVal;
         }
         function isUnitInFilter(unit, subjId) {
             const filter = getDifficultyFilter(subjId);
@@ -2286,7 +2321,14 @@
             const current = Array.isArray(currentTags) ? currentTags : (currentTags ? [currentTags] : []);
 
             const labels = getDifficultyLabels(subjId);
-            Object.entries(labels).forEach(([key, label]) => {
+            const subj = appData.subjects[subjId];
+            const order = (subj && subj.difficultyOrder) ? subj.difficultyOrder : Object.keys(labels);
+
+            order.forEach(key => {
+                // ラベルが存在するもののみ表示
+                if (!labels[key]) return;
+
+                const label = labels[key] || key;
                 const labelEl = document.createElement('label');
                 labelEl.className = 'flex items-center gap-1 cursor-pointer bg-gray-800 px-2 py-1 rounded border border-gray-700 hover:border-gray-500 select-none';
 
@@ -2299,7 +2341,7 @@
 
                 const span = document.createElement('span');
                 span.className = 'text-[10px] text-gray-300';
-                span.textContent = label || key; // ラベルのみ表示
+                span.textContent = label; // ラベルのみ表示
 
                 labelEl.appendChild(input);
                 labelEl.appendChild(span);
@@ -2920,7 +2962,7 @@
         }
 
 
-        // ★追加：難易度フィルターUI描画
+        // ★修正版：難易度フィルターUI描画（配列タグ対応・重複排除修正）
         function renderDifficultyFilter() {
             const area = document.getElementById('difficulty-filter-area');
             const subjId = appData.currentSubjectId;
@@ -2929,19 +2971,33 @@
             }
             const subj = appData.subjects[subjId];
             const labels = subj.difficultyLabels || {};
-            // 実際にsyllabusに使われている難易度だけ表示
-            const usedDiffs = new Set(subj.syllabus.map(u => u.difficulty).filter(Boolean));
+
+            // 実際にsyllabusに使われている難易度だけ表示（配列の中身を展開してSetへ）
+            const usedDiffs = new Set();
+            (subj.syllabus || []).forEach(u => {
+                const d = u.difficulty;
+                if (d) {
+                    if (Array.isArray(d)) d.forEach(val => usedDiffs.add(val));
+                    else usedDiffs.add(d);
+                }
+            });
+
             if (usedDiffs.size === 0) { area.classList.add('hidden'); return; }
 
             area.classList.remove('hidden');
-            area.innerHTML = '<span class="text-[9px] text-gray-500 mr-1">対象:</span>';
+            area.innerHTML = '<span class="text-[9px] text-gray-500 mr-1 flex items-center">対象:</span>';
             const filter = subj.difficultyFilter || Object.keys(labels);
+            const order = subj.difficultyOrder || Object.keys(labels);
 
-            [...usedDiffs].sort().forEach(key => {
+            // usedDiffsに含まれるものを、order順にソートして表示
+            order.filter(key => usedDiffs.has(key)).forEach(key => {
                 const isOn = filter.includes(key);
                 const label = labels[key] || key;
                 const chip = document.createElement('button');
-                chip.className = `text-[10px] px-2.5 py-1 rounded-full font-bold transition-all ${isOn ? 'bg-app-accent text-app-dark' : 'bg-gray-700 text-gray-500'}`;
+                // デザイン調整：丸みと色
+                chip.className = `text-[10px] px-2.5 py-1 rounded-full border transition-all flex items-center justify-center min-w-[24px] ${isOn
+                    ? 'bg-app-accent text-app-dark border-app-accent font-bold shadow-sm'
+                    : 'bg-gray-800 text-gray-400 border-gray-600 hover:border-gray-500'}`;
                 chip.textContent = label;
                 chip.onclick = () => {
                     if (isOn) {
@@ -3573,50 +3629,126 @@
             renderDifficultyLabels();
         }
 
-        // ★ 難易度ラベル管理
+        // ★ 難易度ラベル管理 (並び替え対応版)
         function renderDifficultyLabels() {
             const container = document.getElementById('difficulty-label-list');
             if (!container || !editingSubjectId) return;
             const subj = appData.subjects[editingSubjectId];
             if (!subj) return;
+
             const labels = subj.difficultyLabels || {};
+            // 並び順配列がない場合はキーの配列で初期化して保存
+            if (!subj.difficultyOrder) {
+                subj.difficultyOrder = Object.keys(labels);
+                saveData();
+            }
+
+            // 並び順に含まれていないキーがあれば末尾に追加（整合性保持）
+            Object.keys(labels).forEach(k => {
+                if (!subj.difficultyOrder.includes(k)) subj.difficultyOrder.push(k);
+            });
+            // 逆に存在しないキーが含まれていれば削除
+            subj.difficultyOrder = subj.difficultyOrder.filter(k => labels.hasOwnProperty(k));
+
             container.innerHTML = '';
-            Object.entries(labels).forEach(([key, label]) => {
+
+            subj.difficultyOrder.forEach((key, index) => {
+                const label = labels[key];
                 const row = document.createElement('div');
-                row.className = 'flex items-center gap-2';
+                row.className = 'flex items-center gap-2 bg-gray-900/50 p-1.5 rounded border border-gray-700/50';
+
+                // 上移動ボタン
+                const upBtn = index > 0
+                    ? `<button onclick="moveDifficultyLabel('${key}', -1)" class="text-gray-500 hover:text-white px-1"><i class="fas fa-chevron-up text-[10px]"></i></button>`
+                    : `<span class="w-4 inline-block"></span>`;
+
+                // 下移動ボタン
+                const downBtn = index < subj.difficultyOrder.length - 1
+                    ? `<button onclick="moveDifficultyLabel('${key}', 1)" class="text-gray-500 hover:text-white px-1"><i class="fas fa-chevron-down text-[10px]"></i></button>`
+                    : `<span class="w-4 inline-block"></span>`;
+
                 row.innerHTML = `
-                    <span class="text-[10px] text-gray-400 font-mono w-6 text-center shrink-0">${key}</span>
+                    <div class="flex flex-col gap-0.5">
+                        ${upBtn}
+                        ${downBtn}
+                    </div>
+                    <span class="text-[10px] text-gray-400 font-mono w-6 text-center shrink-0 font-bold">${key}</span>
                     <span class="text-[10px] text-gray-600">→</span>
                     <input type="text" value="${label}" id="diff-label-${key}"
-                        class="flex-1 bg-gray-900 border border-gray-700 text-white text-[10px] rounded px-2 py-1">
+                        class="flex-1 bg-gray-900 border border-gray-700 text-white text-[10px] rounded px-2 py-1 outline-none focus:border-app-accent">
                     <button onclick="updateDifficultyLabel('${key}')"
-                        class="text-app-accent hover:text-sky-300 text-[10px] px-2"><i class="fas fa-save"></i></button>
+                        class="text-app-accent hover:text-sky-300 text-[10px] px-2" title="保存"><i class="fas fa-save"></i></button>
                     <button onclick="removeDifficultyLabel('${key}')"
-                        class="text-gray-600 hover:text-red-400 text-[10px] px-2"><i class="fas fa-trash-alt"></i></button>
+                        class="text-gray-600 hover:text-red-400 text-[10px] px-2" title="削除"><i class="fas fa-trash-alt"></i></button>
                 `;
                 container.appendChild(row);
             });
         }
+
+        // ★追加：難易度タグの並び替え
+        function moveDifficultyLabel(key, direction) {
+            const subj = appData.subjects[editingSubjectId];
+            if (!subj || !subj.difficultyOrder) return;
+
+            const idx = subj.difficultyOrder.indexOf(key);
+            if (idx === -1) return;
+
+            const newIdx = idx + direction;
+            if (newIdx < 0 || newIdx >= subj.difficultyOrder.length) return;
+
+            // 入れ替え
+            const temp = subj.difficultyOrder[newIdx];
+            subj.difficultyOrder[newIdx] = subj.difficultyOrder[idx];
+            subj.difficultyOrder[idx] = temp;
+
+            saveData();
+            renderDifficultyLabels();
+        }
+
         function addDifficultyLabel() {
             const key = document.getElementById('new-diff-key').value.trim().toUpperCase();
             const label = document.getElementById('new-diff-label').value.trim();
             if (!key) { showToast('タグキーを入力してください'); return; }
+
             const subj = appData.subjects[editingSubjectId];
             if (!subj.difficultyLabels) subj.difficultyLabels = {};
+            if (subj.difficultyLabels[key]) { showToast('そのタグは既に存在します'); return; }
+
             subj.difficultyLabels[key] = label || key;
+
+            // 並び順の末尾に追加
+            if (!subj.difficultyOrder) subj.difficultyOrder = Object.keys(subj.difficultyLabels);
+            if (!subj.difficultyOrder.includes(key)) subj.difficultyOrder.push(key);
+
+            // フィルターにも追加（デフォルトON）
             if (!subj.difficultyFilter) subj.difficultyFilter = [];
-            subj.difficultyFilter.push(key);
+            if (!subj.difficultyFilter.includes(key)) subj.difficultyFilter.push(key);
+
             document.getElementById('new-diff-key').value = '';
             document.getElementById('new-diff-label').value = '';
-            saveData(); renderDifficultyLabels(); showToast(`タグ ${key} を追加しました`);
+
+            saveData();
+            renderDifficultyLabels();
+            showToast(`タグ ${key} を追加しました`);
         }
+
         function removeDifficultyLabel(key) {
             if (!confirm(`タグ「${key}」を削除しますか？\n（設定済みの単元データからは削除されません）`)) return;
             const subj = appData.subjects[editingSubjectId];
             delete subj.difficultyLabels[key];
+
+            // 並び順からも削除
+            if (subj.difficultyOrder) {
+                subj.difficultyOrder = subj.difficultyOrder.filter(k => k !== key);
+            }
+
             subj.difficultyFilter = (subj.difficultyFilter || []).filter(f => f !== key);
-            saveData(); renderDifficultyLabels(); updateUI();
+
+            saveData();
+            renderDifficultyLabels();
+            updateUI();
         }
+
         function updateDifficultyLabel(key) {
             const newVal = document.getElementById(`diff-label-${key}`).value.trim();
             const subj = appData.subjects[editingSubjectId];
@@ -4520,8 +4652,12 @@
             const today = getToday();
 
             let initialPercent = 0;
+            // フィルタリング対象のアイテムリスト
+            let targetItems = [];
+            let totalTargetCount = 0;
 
             if (appData.currentSubjectId === ALL_SUBJECTS_ID) {
+                // 全科目モード（フィルタ非対応：従来通りhistoryを使用）
                 const dates = new Set();
                 getActiveSubjects().forEach(s => {
                     Object.keys(s.history).forEach(d => dates.add(d));
@@ -4545,15 +4681,28 @@
                 end = s.examDate ? new Date(s.examDate) : null;
 
                 if (!isChallenge && s.syllabus && s.syllabus.length > 0) {
+                    // ★フィルタ適用：現在のフィルタ設定を取得してsyllabusを絞り込む
+                    const filter = getDifficultyFilter(appData.currentSubjectId);
+                    targetItems = s.syllabus.filter(u => {
+                        // isUnitInFilter相当のロジック（または関数呼び出し）
+                        const tags = Array.isArray(u.difficulty) ? u.difficulty : (u.difficulty ? [u.difficulty] : []);
+                        if (tags.length === 0) return true; // タグなしは常に含める
+                        return tags.some(t => filter.includes(t));
+                    });
+                    totalTargetCount = targetItems.length;
+
                     const startDateStr = formatDate(start);
 
-                    // ★修正：「initial」または「開始日以前に完了したもの」を初期値としてカウント
-                    const initialDoneCount = s.syllabus.filter(u =>
-                        u.status === 'completed' &&
-                        (u.completedDate === 'initial' || (u.completedDate && u.completedDate <= startDateStr))
-                    ).length;
-
-                    initialPercent = Math.round((initialDoneCount / s.syllabus.length) * 100);
+                    if (totalTargetCount > 0) {
+                        // 絞り込まれた中での初期完了数
+                        const initialDoneCount = targetItems.filter(u =>
+                            u.status === 'completed' &&
+                            (u.completedDate === 'initial' || (u.completedDate && u.completedDate <= startDateStr))
+                        ).length;
+                        initialPercent = Math.round((initialDoneCount / totalTargetCount) * 100);
+                    } else {
+                        initialPercent = 0;
+                    }
                 }
             }
 
@@ -4576,11 +4725,22 @@
                         val = daysPassed > 0 ? Math.round((done / daysPassed) * 100) : 0;
                     } else {
                         if (appData.currentSubjectId === ALL_SUBJECTS_ID) {
+                            // 全科目は従来通り
                             let total = 0, count = 0;
                             getActiveSubjects().forEach(s => { total += getProgressAt(s, dStr); count++; });
                             val = count > 0 ? Math.round(total / count) : 0;
                         } else {
-                            val = getProgressAt(appData.subjects[appData.currentSubjectId], dStr);
+                            // ★単科目はフィルタリング結果から動的に計算
+                            if (totalTargetCount > 0) {
+                                // その日までに完了したアイテム数（絞り込み済みリストから）
+                                const doneCount = targetItems.filter(u =>
+                                    u.status === 'completed' &&
+                                    (u.completedDate === 'initial' || (u.completedDate && u.completedDate <= dStr))
+                                ).length;
+                                val = Math.round((doneCount / totalTargetCount) * 100);
+                            } else {
+                                val = 0;
+                            }
                         }
                         if (val < initialPercent) val = initialPercent;
                         points.push({ x: dayIdx, y: val });
@@ -4651,6 +4811,7 @@
             paceChart.data.labels = labels;
             paceChart.data.datasets[0].data = ideal;
             paceChart.data.datasets[1].data = actual;
+            paceChart.data.datasets[2].data = trend;
 
             // ★追加: 頑張った日（進捗が増えた日）のポイントサイズを大きくする
             const pointRadii = actual.map((val, idx) => {
@@ -4670,7 +4831,7 @@
 
             paceChart.data.datasets[1].borderColor = isChallenge ? '#fbbf24' : '#10b981';
             paceChart.data.datasets[1].backgroundColor = isChallenge ? 'rgba(251, 191, 36, 0.1)' : 'rgba(16, 185, 129, 0.1)';
-            paceChart.data.datasets[2].data = trend;
+
             paceChart.update();
         }
         function updateUI() {
@@ -4768,7 +4929,42 @@
 
             const log = (appData.sleepLog && appData.sleepLog[dateStr]) || { wake: '', bed: '' };
             document.getElementById('sleep-log-wake').value = log.wake || '';
-            document.getElementById('sleep-log-bed').value = log.bed || '';
+
+            // allnighter or normal bed
+            const bedInput = document.getElementById('sleep-log-bed');
+            const nextDayCheckbox = document.getElementById('sleep-log-nextday');
+            if (log.bed === 'allnighter') {
+                bedInput.value = '';
+                bedInput.disabled = true;
+                bedInput.style.opacity = '0.3';
+                nextDayCheckbox.checked = false;
+                nextDayCheckbox.disabled = true;
+            } else {
+                bedInput.value = log.bed || '';
+                bedInput.disabled = false;
+                bedInput.style.opacity = '1';
+                nextDayCheckbox.checked = !!log.bedNextDay;
+                nextDayCheckbox.disabled = false;
+            }
+            updateBedNextDayLabel();
+        }
+
+        function updateBedNextDayLabel() {
+            const cb = document.getElementById('sleep-log-nextday');
+            const track = document.getElementById('sleep-log-nextday-track');
+            const thumb = document.getElementById('sleep-log-nextday-thumb');
+            const text = document.getElementById('sleep-log-nextday-text');
+            if (cb.checked) {
+                track.style.backgroundColor = '#7c3aed';
+                thumb.style.left = '14px';
+                thumb.style.backgroundColor = '#fff';
+                text.style.color = '#c084fc';
+            } else {
+                track.style.backgroundColor = '#374151';
+                thumb.style.left = '2px';
+                thumb.style.backgroundColor = '#9ca3af';
+                text.style.color = '#6b7280';
+            }
         }
 
         function shiftSleepLogDate(diff) {
@@ -4798,9 +4994,22 @@
                 updatedVal = val;
             } else if (type === 'bed') {
                 const val = document.getElementById('sleep-log-bed').value;
+                const nextDay = document.getElementById('sleep-log-nextday').checked;
                 appData.sleepLog[dateStr].bed = val;
-                msg = "就寝時間を記録しました";
+                appData.sleepLog[dateStr].bedNextDay = nextDay;
+                msg = nextDay ? `就寝時間を記録しました (翌日 ${val})` : "就寝時間を記録しました";
                 updatedVal = val;
+            } else if (type === 'allnighter') {
+                appData.sleepLog[dateStr].bed = 'allnighter';
+                delete appData.sleepLog[dateStr].bedNextDay;
+                msg = "オール（徹夜）を記録しました";
+                // UIを更新
+                document.getElementById('sleep-log-bed').value = '';
+                document.getElementById('sleep-log-bed').disabled = true;
+                document.getElementById('sleep-log-bed').style.opacity = '0.3';
+                document.getElementById('sleep-log-nextday').checked = false;
+                document.getElementById('sleep-log-nextday').disabled = true;
+                updateBedNextDayLabel();
             } else {
                 // fallback for old calls (though now separate buttons)
                 appData.sleepLog[dateStr].wake = document.getElementById('sleep-log-wake').value;
@@ -4831,8 +5040,9 @@
                     const wakeMin = timeToMinutes(wake);
                     const targetMin = timeToMinutes(c.autoCheckTime);
                     if (wakeMin <= targetMin) achieved = true;
-                } else if (c.autoCheckType === 'bedtime' && bed) {
-                    const bedMin = timeToMinutes(bed, true);
+                } else if (c.autoCheckType === 'bedtime' && bed && bed !== 'allnighter') {
+                    const bedLog = appData.sleepLog && appData.sleepLog[dateStr];
+                    const bedMin = timeToMinutes(bed, true, bedLog && bedLog.bedNextDay);
                     const targetMin = timeToMinutes(c.autoCheckTime, true);
                     if (bedMin <= targetMin) achieved = true;
                 }
@@ -4852,13 +5062,17 @@
             }
         }
 
-        function timeToMinutes(timeStr, isBedtime = false) {
-            if (!timeStr) return 9999;
+        function timeToMinutes(timeStr, isBedtime = false, bedNextDay = false) {
+            if (!timeStr || timeStr === 'allnighter') return 9999;
             const [h, m] = timeStr.split(':').map(Number);
             let total = h * 60 + m;
-            // 就寝時間の場合、00:00-03:59 (深夜) は24:00-27:59 (翌日) として扱う
-            // 今回はグラフ描画範囲の 04:00 ～ 28:00 に合わせる
-            if (isBedtime && h < 4) total += 24 * 60;
+            if (bedNextDay) {
+                // 明示的に「翌日」トグルがONの場合、常に+24時間
+                total += 24 * 60;
+            } else if (isBedtime && h < 4) {
+                // 後方互換: 00:00-03:59 は自動で翌日扱い
+                total += 24 * 60;
+            }
             return total;
         }
 
@@ -4899,28 +5113,27 @@
             const chartW = width - padding.left - padding.right;
             const chartH = height - padding.top - padding.bottom;
 
-            // Y軸スケール: 前日18:00 (-360) ～ 当日18:00 (1080)
+            // Y軸スケール: 前日18:00 (-360) ～ 当日24:00 (1440)
             // これにより 0:00 が中央やや上に来て、睡眠(夜〜朝)が連続して表示される
+            // 翌日トグル対応のため上限を18時→24時に拡張
             const minMin = -360;
-            const maxMin = 1080;
-            const rangeMin = 1440;
+            const maxMin = 1440;
+            const rangeMin = maxMin - minMin;
 
             // 時刻文字列を分に変換 (0:00基準)
             // isPrevBed: 前日の就寝時間かどうか
-            const getMinutes = (timeStr, isPrevBed) => {
-                if (!timeStr) return null;
+            // bedNextDay: 翌日トグルがONかどうか
+            const getMinutes = (timeStr, isPrevBed, bedNextDay) => {
+                if (!timeStr || timeStr === 'allnighter') return null;
                 const [h, m] = timeStr.split(':').map(Number);
                 let total = h * 60 + m;
 
                 if (isPrevBed) {
-                    // 前日の就寝時間の場合
-                    // 12:00以降なら前日の夜とみなしてマイナスオフセット
-                    // 00:00〜12:00なら当日の未明とみなしてそのまま（ただし前日データ由来なので当日の早朝寝と同じ扱い）
-                    // ※通常「就寝」は夜なので、例えば23:00なら-60、25:00(01:00)なら60となるべきだが
-                    // input type=timeは01:00で返ってくる。
-                    // 文脈的に「前日のログ」にある「01:00」は「前日の深夜25時」＝「当日の01:00」なのでそのまま。
-                    // 「前日のログ」にある「23:00」は「前日の23時」なので「当日の-60分」。
-                    if (total > 720) { // 12:00以後は前日扱い
+                    if (bedNextDay) {
+                        // 明示的に翌日指定: そのまま（当日の時刻としてプロット）
+                        // 例: bedNextDay ON で 05:00 → 当日の05:00 (300分)
+                    } else if (total > 720) {
+                        // 12:00以後は前日扱い（従来ロジック）
                         total -= 1440;
                     }
                     // 12:00以前(午前中)はそのまま（深夜就寝）
@@ -5035,8 +5248,25 @@
                 const prevStr = formatDate(prevD);
                 const logPrev = (appData.sleepLog && appData.sleepLog[prevStr]);
 
-                if (logCurr || logPrev) {
-                    const minBed = logPrev ? getMinutes(logPrev.bed, true) : null;
+                // オール（徹夜）の場合は×印を表示
+                const prevIsAllnighter = logPrev && logPrev.bed === 'allnighter';
+                if (prevIsAllnighter) {
+                    // オール表示: ×印
+                    const allTxt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                    allTxt.setAttribute("x", xCenter);
+                    allTxt.setAttribute("y", padding.top + chartH * 0.35);
+                    allTxt.setAttribute("text-anchor", "middle");
+                    allTxt.setAttribute("dominant-baseline", "middle");
+                    allTxt.setAttribute("fill", "#fb923c");
+                    allTxt.setAttribute("font-size", "10");
+                    allTxt.setAttribute("opacity", "0.7");
+                    allTxt.textContent = "徹夜";
+                    svg.appendChild(allTxt);
+                }
+
+                if ((logCurr || logPrev) && !prevIsAllnighter) {
+                    const minBed = logPrev && logPrev.bed && logPrev.bed !== 'allnighter'
+                        ? getMinutes(logPrev.bed, true, logPrev.bedNextDay) : null;
                     const minWake = logCurr ? getMinutes(logCurr.wake, false) : null;
 
                     const yBed = getY(minBed);
@@ -5134,31 +5364,50 @@
             // ボタンの表示はHTML読み込み後に行うため、window.onload等で再度呼ぶか、
             // 設定モーダルを開いた時に更新するようにします
         })();
-        window.onload = () => {
+        document.addEventListener('DOMContentLoaded', () => {
+            // ローディング画面の制御
+            // 少しだけ待ってからフェードアウトさせる（ちらつき防止 & 初期処理待ち）
+            setTimeout(() => {
+                const loader = document.getElementById('initial-loader');
+                if (loader) {
+                    loader.style.opacity = '0';
+                    setTimeout(() => loader.remove(), 500);
+                }
+            }, 500);
+
             // ログイン状態の監視を少し丁寧に
-            firebase.auth().onAuthStateChanged((user) => {
-                const modal = document.getElementById('login-modal');
-                if (user) {
-                    currentUserDocId = user.uid;
-                    modal.classList.add('hidden');
-                    // ログインが確定してから1秒後に通信を開始する
-                    setTimeout(() => {
+            // Firebaseの読み込みを待つ必要があるため、setIntervalでチェックするか、
+            // deferしているのでDOMContentLoaded時にはfirebase変数が使えるはずだが、
+            // 安全のためtry-catchで囲むか、存在チェックを行う
+            const initFirebase = () => {
+                if (typeof firebase === 'undefined') {
+                    setTimeout(initFirebase, 100);
+                    return;
+                }
+
+                firebase.auth().onAuthStateChanged((user) => {
+                    const modal = document.getElementById('login-modal');
+                    if (user) {
+                        currentUserDocId = user.uid;
+                        modal.classList.add('hidden');
+                        // ログインが確定してから通信を開始する
                         startListening();
                         //syncFromGoogleTasks(); // ★自動同期したい場合はこの行が必要です！
-                    }, 1000);
-                } else {
-                    currentUserDocId = null;
-                    modal.classList.remove('hidden');
-                    document.body.style.opacity = 1;
-                }
-            });
+                    } else {
+                        currentUserDocId = null;
+                        modal.classList.remove('hidden');
+                    }
+                });
+            };
+            initFirebase();
+
             updateChartColors();
-            updateChartColors();
+            updateChartColors(); // 重複しているが元のコード通り残す
             initStudyTimeSelects(); // ★追加: セレクトボックス初期化
             // アコーディオンの初期状態を設定（直近で開いていたものを記憶しても良いが、一旦デフォルトは閉じておくか、最初だけ開く）
             // タブの初期表示
             switchHabitTab('tab-habit-check');
-        };
+        });
 
         // --- Global Data Migration ---
         function getBlankData() {
